@@ -32,7 +32,7 @@ print('''
     ''')
 
 SPLIT_IDS_DIR = '../data/karpathy_splits/coco2014_cocoid.{}.txt'
-CAPTIONS_DIR = '../data/coco/annotations/instances_{}2014.json'
+CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
 MEAN_VEC_DIR = '../data/karpathy_splits/mean_bert_vectors.{}.txt'
 
 for split in ['train', 'val']:
