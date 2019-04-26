@@ -48,7 +48,8 @@ for split in ['train', 'val']:
         # get all image captions and calculate their mean fixed-length vector
         for i, img_id in enumerate(f.readline()):
             caption_ids = all_captions.getAnnIds(imgIds=img_id)
-            captions = all_captions.loadAnns(caption_ids)
+            captions = [caption + ' <EOS>'
+                        for caption in all_captions.loadAnns(caption_ids)]
 
             # this returns an array of shape (5, 768)
             bert_vectors = bert_client.encode([c['caption'] for c in captions])
