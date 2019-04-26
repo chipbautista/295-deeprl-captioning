@@ -17,7 +17,8 @@ FIELDNAMES = ['image_id', 'image_w', 'image_h',
 
 tsv_dir = '../data/features/trainval_36/trainval_resnet101_faster_rcnn_genome_36.tsv'
 
-with open(tsv_dir, 'r+b') as f:
+print('This will extract all the features for 120K images to ../data/feature/extracts. Will take a while.')
+with open(tsv_dir, 'rb') as f:
     csv_reader = csv.DictReader(f, delimiter='\t', fieldnames=FIELDNAMES)
     for i, item in enumerate(csv_reader):
         features = np.frombuffer(
