@@ -15,18 +15,23 @@ csv.field_size_limit(sys.maxsize)
 FIELDNAMES = ['image_id', 'image_w', 'image_h',
               'num_boxes', 'boxes', 'features']
 
-with open('../data/features/trainval_36.tsv' 'r+b') as f:
+tsv_dir = '../data/features/trainval_36/trainval_resnet101_faster_rcnn_genome_36.tsv'
+
+with open(tsv_dir, 'r+b') as f:
     csv_reader = csv.DictReader(f, delimiter='\t', fieldnames=FIELDNAMES)
-    for item in csv_reader:
-        item['image_id'] = int(item['image_id'])
-        item['image_h'] = int(item['image_h'])
-        item['image_w'] = int(item['image_w'])
+    for i, item in enumerate(csv_reader):
+        features = np.frombuffer(
+            base64.decodestring(item['features']),
+            dtype=np.float32)
 
-        # do we need the boxes and the dimensions, though?
-        for field in ['boxes', 'features']:
-            item[field] = np.frombuffer(
-                base64.decodestring(item[field]),
-                dtype=np.float32).reshape((item['num_boxes'], -1))
+        # this results in shape (36, 2048), or 73728 values...
+        # each one is 96 bytes, according to sys.getsizeof()
+        features = features.reshape((int(item['num_boxes']), -1))
 
-        np.save('../data/features/{}.npy'.format(item['image_id']),
-                item)
+        np.save('../data/features/extracts/{}.npy'.format(item['image_id']),
+                features)
+
+        if i % 1000 == 0:
+            print('Extracted features for {} images.'.format(i))
+
+print('Extraction done.')
