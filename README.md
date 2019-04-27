@@ -39,17 +39,23 @@ Install TF 1.12.0 explicitly with:
 ```
     mkdir data/karpathy_splits
 ```
-6a. Create subfolder for image features c/o [this repo/project from peteanderson08](https://github.com/peteanderson80/bottom-up-attention) and download 36 features per image:
+6. Create subfolder for image features c/o [this repo/project from peteanderson08](https://github.com/peteanderson80/bottom-up-attention) and download 36 features per image:
 ```
     mkdir data/features
     # this is 25GB!
     wget https://imagecaption.blob.core.windows.net/imagecaption/trainval_36.zip
     unzip trainval_36.zip -d data/features/
 ```
-6b. For easy access to the features during runtime, extract them from the `.tsv` file to a separate folder (will need 35GB disk space):
+7. For easy access to the features during runtime, extract them from the `.tsv` file to a separate folder (will need 35GB disk space):
 ```
     mkdir data/features/extracts
 
     # run this using Python 2!
     python extract_features.py
+```
+8. For easy access to the mean vectors during runtime, pre-calculate them and store to a separate folder:
+```
+    mkdir data/mean_vectors/
+    python calculate_mean_vectors.py
+
 ```
