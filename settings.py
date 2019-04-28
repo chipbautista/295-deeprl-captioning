@@ -5,13 +5,14 @@ FEATURES_DIR = '../data/features/extracts/{}.npy'
 MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
 
 # Hyperparameters
-DISCOUNT_FACTOR = 0.99
+DISCOUNT_FACTOR = 0.95
 LEARNING_RATE = 0.01
-BATCH_SIZE = 16
-DO_SHUFFLE = True
+BATCH_SIZE = 32
+SHUFFLE = True
 
 # Environment
-MAX_WORDS = 20
+MAX_WORDS = 30
+MEMORY_CAPACITY = 100
 
 # Network dimensions (hardcoding here haha...)
 # Follows Bottom-Up Top-Down paper.

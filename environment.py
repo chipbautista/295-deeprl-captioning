@@ -1,14 +1,19 @@
-import numpy as np
+import random
 
+import numpy as np
 from bert_serving.client import BertClient
+
+from settings import *
+
+
 bert_client = BertClient()
 
 
 class Environment(object):
-    def __init__(self, splits_dir):
+    def __init__(self):
         pass
 
-    def calculate_reward(self, batch_actions, mean_vecs):
+    def calculate_reward(self, actions, mean_vecs):  # TO REPAIR
         """
         Basically distance. (or?)
         Choices: Euclidean or L1 or?
@@ -27,3 +32,26 @@ class Environment(object):
         # use gensim here?
         sentence = None
         return sentence
+
+
+class ReplayMemory(object):
+    def __init__(self):
+        self.capacity = MEMORY_CAPACITY  # Num of trajectories to save
+        self.batch_size = BATCH_SIZE
+        self.buffer = []
+        # self.position - idk what this is for, yet.
+
+    def push(self, trajectory):
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(trajectory)
+
+    def pop_batch(self):
+        batch = random.sample(self.buffer, self.batch_size)
+        return batch
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def reset(self):
+        # Add code to not delete good episodes?
+        self.buffer = []
