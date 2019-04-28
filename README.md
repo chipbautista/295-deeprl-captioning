@@ -11,13 +11,15 @@ Latest TensorFlow version is 1.13, but HPCC only supports until 1.12 because of 
 
 Install TF 1.12.0 explicitly with:
 `conda install -c anaconda tensorflow-gpu=1.12.0`
+or
+`pip install tensorflow-gpu==1.12.0`
 
 Install PyTorch:
 `conda install pytorch torchvision cudatoolkit=9.0 -c pytorch
 `
 
 **Chip's PC**
-CUDA 10.0 NVIDIA Version 410.104
+CUDA 10.0 Driver Version 410.104
 GeForce GTX 1070
 
 Install PyTorch:

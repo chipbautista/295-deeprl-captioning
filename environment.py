@@ -1,7 +1,7 @@
 import random
 
 import numpy as np
-from torch import Tensor
+import torch
 from torch.nn.functional import cosine_similarity
 from bert_serving.client import BertClient
 
@@ -32,12 +32,14 @@ class Environment(object):
         sentence = ' '.join(
             [self.vocabulary[idx]
              for idx in action_history[1:]])  # [1:] to not include SOS
-        predicted_vector = Tensor(bert_client.encode([sentence])[0].reshape(1, -1))
-        similarity = cosine_similarity(predicted_vector, Tensor(mean_vector))
-        print(sentence, similarity)
+        predicted_vector = torch.Tensor(bert_client.encode([sentence])[0].reshape(1, -1))
+        similarity = cosine_similarity(predicted_vector, torch.Tensor(mean_vector))
         # distances = np.linalg.norm(sentence_vectors, mean_vecs)  # L2
 
         return similarity, done
+
+    def get_word_index(self, word):
+            return np.where(self.vocabulary == word)[0][0]
 
 
 class ReplayMemory(object):

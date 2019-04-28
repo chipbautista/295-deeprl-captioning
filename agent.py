@@ -4,6 +4,9 @@ described in Anderson's Bottom-Up Top-Down paper.
 
 ruotianluo has his own implementation here:
 https://github.com/ruotianluo/self-critical.pytorch/blob/master/models/AttModel.py
+
+For training actor-critic, follow this implementation:
+https://github.com/pranz24/pytorch-soft-actor-critic/blob/master/sac.py
 """
 import torch
 import torch.nn.functional as F
@@ -11,7 +14,10 @@ from settings import *
 
 
 class Agent(object):
-    def __init__(self):
+    def __init__(self, mode='RL'):
+        # just a hacky way to use this class for supervised learning... :(
+        self.mode = mode
+
         self.actor = TopDownModel().cuda()
         self.actor_optim = torch.optim.Adam(self.actor.parameters())
         # self.critic = TopDownModel_MLP()
@@ -20,10 +26,13 @@ class Agent(object):
         self.DISCOUNT = DISCOUNT_FACTOR
 
     def select_action(self, state):
-        return self.actor(state)
+        return self.actor(state, self.mode)
 
-    def update(self):
-        batch_
+    def supervised_update(self, loss):
+        # For supervised only! RL training to be written next.
+        self.actor_optim.zero_grad()
+        loss.backward(retain_graph=True)
+        self.actor_optim.step()
 
 
 class TopDownModel(torch.nn.Module):
@@ -55,7 +64,7 @@ class TopDownModel(torch.nn.Module):
             bias=True
         )
 
-    def forward(self, state):
+    def forward(self, state, mode='RL'):
         """
         FUNCTION INPUTS:
         language_lstm_h: shape (1000)
@@ -97,8 +106,11 @@ class TopDownModel(torch.nn.Module):
         word_logits = self.word_selection(language_lstm_h)
         word_probabilities = F.softmax(word_logits, dim=1)
 
-        word_index = torch.argmax(word_probabilities, dim=1)
-        return word_index[0], language_lstm_h.reshape(-1)
+        if mode == 'RL':
+            word_index = torch.argmax(word_probabilities, dim=1)
+            return word_index[0], language_lstm_h.reshape(-1)
+        else:
+            return word_probabilities[0], language_lstm_h.reshape(-1)
 
     def update(self, memory):
         print('Updating agent parameters...')

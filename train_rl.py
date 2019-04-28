@@ -67,10 +67,11 @@ for i, (img_features, mean_vector) in enumerate(train_loader):
         trajectory.extend([state, done])
         memory.push(trajectory)
 
-        if len(memory) == BATCH_SIZE:
-            import pdb; pdb.set_trace()
-            agent.update()
-            memory.reset()
+        # THIS PART IS STILL BROKEN
+        # WILL CONTINUE THIS AFTER SUPERVISED PRE-TRAINING
+        # if len(memory) == BATCH_SIZE:
+        #    agent.update()
+        #    memory.reset()
 
         if done:
             print('<EOS> triggered after {} steps.'.format(t))

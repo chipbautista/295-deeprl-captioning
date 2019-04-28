@@ -3,7 +3,9 @@ Should handle all data set processing tasks
 for train and test time.
 """
 import numpy as np
+from re import sub
 from torch.utils.data import Dataset
+from pycocotools.coco import COCO
 
 from settings import *
 
@@ -14,7 +16,8 @@ LOCAL_IDS = ['123008',  '123013',  '12302',  '123023',  '123028',  '123036',  '1
 
 
 class MSCOCO(Dataset):
-    def __init__(self, split):
+    def __init__(self, split, ):
+        self.mode = mode
         # with open(KARPATHY_SPLIT_DIR.format(split)) as f:
         #     self.img_ids = f.read().split('\n')
         self.img_ids = LOCAL_IDS
@@ -27,3 +30,35 @@ class MSCOCO(Dataset):
 
     def __len__(self):
         return len(self.img_ids)
+
+
+class MSCOCO_Supervised(Dataset):
+    def __init__(self, split):
+        self.img_ids = LOCAL_IDS
+        self.coco_captions = COCO(CAPTIONS_DIR.format(split))
+
+        self.img_caption_pairs = []
+        self.make_img_caption_pairs()
+
+    def make_img_caption_pairs(self):
+        for img_id in self.img_ids:
+            caption_ids = self.coco_captions.getAnnIds(
+                imgIds=int(img_id))
+
+            captions = self.coco_captions.loadAnns(caption_ids)
+            for caption in captions:
+                caption = self._clean(caption['caption']) + ' <EOS>'
+                self.img_caption_pairs.append((img_id, caption))
+
+    def __len__(self):
+        return len(self.img_caption_pairs)
+
+    def __getitem__(self, index):
+        img_id, caption = self.img_caption_pairs[index]
+        return (
+            np.load(FEATURES_DIR.format(img_id)),
+            caption
+        )
+
+    def _clean(self, sentence):
+        return sub(r'[^\w ]', '', sentence.lower()).strip()
