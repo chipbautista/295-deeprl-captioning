@@ -1,6 +1,8 @@
 import random
 
 import numpy as np
+from torch import Tensor
+from torch.nn.functional import cosine_similarity
 from bert_serving.client import BertClient
 
 from settings import *
@@ -11,27 +13,31 @@ bert_client = BertClient()
 
 class Environment(object):
     def __init__(self):
-        pass
+        self.vocabulary = np.load('vocabulary.npy')
 
-    def calculate_reward(self, actions, mean_vecs):  # TO REPAIR
+    def calculate_reward(self, action_history, mean_vector):
         """
         Basically distance. (or?)
         Choices: Euclidean or L1 or?
         """
         # sentence = self.actions_to_sentence(actions)
-        sentences = [' '.join(actions) for actions in batch_actions]
-        sentence_vectors = bert_client.encode(sentences)
-        distances = np.linalg.norm(sentence_vectors, mean_vecs)  # L2
+        done = False
+        if action_history[-1] == 1:
+            # if the last action is EOS, don't include that in decoding
+            action_history = action_history[:-1]
+            done = True
+        if len(action_history) >= MAX_WORDS + 2:
+            done = True
 
-        words = sentence.split()
-        if len(words) == 20 or words[-1] == '<EOS>':
-            return distance, True
-        return distance, False
+        sentence = ' '.join(
+            [self.vocabulary[idx]
+             for idx in action_history[1:]])  # [1:] to not include SOS
+        predicted_vector = Tensor(bert_client.encode([sentence])[0].reshape(1, -1))
+        similarity = cosine_similarity(predicted_vector, Tensor(mean_vector))
+        print(sentence, similarity)
+        # distances = np.linalg.norm(sentence_vectors, mean_vecs)  # L2
 
-    def actions_to_sentence(self, actions):
-        # use gensim here?
-        sentence = None
-        return sentence
+        return similarity, done
 
 
 class ReplayMemory(object):

@@ -98,7 +98,7 @@ class TopDownModel(torch.nn.Module):
         word_probabilities = F.softmax(word_logits, dim=1)
 
         word_index = torch.argmax(word_probabilities, dim=1)
-        return word_index[0], language_lstm_h
+        return word_index[0], language_lstm_h.reshape(-1)
 
     def update(self, memory):
         print('Updating agent parameters...')
