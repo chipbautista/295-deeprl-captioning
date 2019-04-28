@@ -9,13 +9,14 @@ https://ai.googleblog.com/2018/11/open-sourcing-bert-state-of-art-pre.html
 Before running this file,
 start BERT server first:
 
-bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/
+bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ -max_seq_len NONE
 
 TO-DO
-- [] Add START and END sentence tags
+- [] Add START and END sentence tags (do we need to?)
 - [] Add POS tags (optional, after we have a working model already)
 """
-import json
+from re import sub
+
 import numpy as np
 
 from pycocotools.coco import COCO
@@ -32,10 +33,9 @@ print('''
     This may take a while.
     ''')
 
-
+max_words = 0
 for split in ['train', 'val']:
     print('Processing captions for {} split.'.format(split))
-    mean_vectors = {}
 
     # initialize all captions for the split using COCO API
     all_captions = COCO(CAPTIONS_DIR.format(split))
@@ -44,19 +44,25 @@ for split in ['train', 'val']:
     with open(KARPATHY_SPLIT_DIR.format(split), 'r') as f:
 
         # get all image captions and calculate their mean fixed-length vector
-        for i, img_id in enumerate(f.readline()):
-            caption_ids = all_captions.getAnnIds(imgIds=img_id)
-            captions = [caption + ' <EOS>'
-                        for caption in all_captions.loadAnns(caption_ids)]
+        for i, img_id in enumerate(f.read().split('\n')[:-1]):
+            caption_ids = all_captions.getAnnIds(imgIds=int(img_id))
+            captions = [sub(r'[^\w ]', '', c['caption'].lower()).strip()
+                        for c in all_captions.loadAnns(caption_ids)]
+
+            # for data exploration:
+            # check how many words are in the longest caption
+            longest_caption = max([len(c.split()) for c in captions])
+            if longest_caption > max_words:
+                max_words = longest_caption
 
             # this returns an array of shape (5, 768)
-            bert_vectors = bert_client.encode([c['caption'] for c in captions])
-            mean_vectors[img_id] = np.mean(bert_vectors, 0)
+            bert_vectors = bert_client.encode(captions)
+            mean_vectors = np.mean(bert_vectors, 0)
+
+            np.save(MEAN_VEC_DIR.format(img_id), mean_vectors)
 
             if i % 5000 == 0:
                 print('Captions for {} images are finished.'.format(i))
 
-    # save dictionary to file
-    with open(MEAN_VEC_DIR.format(split), 'r+') as f:
-        f.write(json.dumps(mean_vectors))
     print('Finished processing {} split.'.format(split))
+    print('Longest caption found: {} words'.format(max_words))

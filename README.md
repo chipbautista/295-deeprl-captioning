@@ -7,10 +7,22 @@ A repository for our CS 295 (Reinforcement Learning) Mini Project. Partnered wit
 (install `Cython` first!)
 
 **For ASTI's HPCC**
-Latest TensorFlow version is 1.13, but HPCC only supports until 1.12 because of outdated CUDA softwares (I think).
+Latest TensorFlow version is 1.13, but HPCC only supports until 1.12 because of outdated CUDA softwares (I think). Its latest installed is 9.1.85, and NVIDIA driver version is still 384.81 (latest is 410)
 
 Install TF 1.12.0 explicitly with:
 `conda install -c anaconda tensorflow-gpu=1.12.0`
+
+Install PyTorch:
+`conda install pytorch torchvision cudatoolkit=9.0 -c pytorch
+`
+
+**Chip's PC**
+CUDA 10.0 NVIDIA Version 410.104
+GeForce GTX 1070
+
+Install PyTorch:
+`conda install pytorch torchvision cudatoolkit=10.0 -c pytorch`
+
 
 ### File structure
 1. Clone this repo: `git clone https://github.com/chippybautista/295-deeprl-captioning.git`
@@ -25,15 +37,16 @@ Install TF 1.12.0 explicitly with:
 ```
     mkdir data/coco
     mkdir data/coco/annotations
-    mkdir data/coco/images
 
-    # these will take a while!
+    wget http://images.cocodataset.org/annotations/annotations_trainval2014.zip
+    unzip annotations_trainval2014.zip -d data/coco/annotations
+
+    # You can skip these because we'll be using extracted image features anyway
+    mkdir data/coco/images
     wget http://images.cocodataset.org/zips/train2014.zip
     wget http://images.cocodataset.org/zips/val2014.zip
-    wget http://images.cocodataset.org/annotations/annotations_trainval2014.zip
     unzip train2014.zip -d data/coco/images
     unzip val2014.zip -d data/coco/images
-    unzip annotations_trainval2014.zip -d data/coco/annotations
 ```
 5. Create subfolder for MSCOCO Karpathy splits:
 ```
@@ -51,11 +64,10 @@ Install TF 1.12.0 explicitly with:
     mkdir data/features/extracts
 
     # run this using Python 2!
-    python extract_features.py
+    python _extract_features.py
 ```
 8. For easy access to the mean vectors during runtime, pre-calculate them and store to a separate folder:
 ```
     mkdir data/mean_vectors/
-    python calculate_mean_vectors.py
-
+    python _calculate_mean_vectors.py
 ```
