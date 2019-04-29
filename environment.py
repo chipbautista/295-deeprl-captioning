@@ -8,7 +8,7 @@ from bert_serving.client import BertClient
 from settings import *
 
 
-bert_client = BertClient()
+# bert_client = BertClient()
 
 
 class Environment(object):

@@ -41,7 +41,7 @@ class TopDownModel(torch.nn.Module):
         self.word_embedding = torch.nn.Linear(
             in_features=VOCABULARY_SIZE,
             out_features=WORD_EMBEDDING_SIZE,
-            bias=False
+            bias=True
         )
 
         self.attention_lstm = torch.nn.LSTMCell(
@@ -106,11 +106,18 @@ class TopDownModel(torch.nn.Module):
         word_logits = self.word_selection(language_lstm_h)
         word_probabilities = F.softmax(word_logits, dim=1)
 
+        lstm_states = {
+            'language_h': language_lstm_h,
+            'language_c': language_lstm_c,
+            'attention_h': attention_lstm_h,
+            'attention_c': attention_lstm_c
+        }
+
         if mode == 'RL':
             word_index = torch.argmax(word_probabilities, dim=1)
-            return word_index[0], language_lstm_h.reshape(-1)
+            return word_index[0], lstm_states
         else:
-            return word_probabilities[0], language_lstm_h.reshape(-1)
+            return word_probabilities[0], lstm_states
 
     def update(self, memory):
         print('Updating agent parameters...')
