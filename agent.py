@@ -25,8 +25,8 @@ class Agent(object):
 
         self.DISCOUNT = DISCOUNT_FACTOR
 
-    def select_action(self, state):
-        return self.actor(state, self.mode)
+    def select_action(self, state, lstm_states):
+        return self.actor(state, lstm_states, self.mode)
 
     def supervised_update(self, loss):
         # For supervised only! RL training to be written next.
@@ -64,7 +64,7 @@ class TopDownModel(torch.nn.Module):
             bias=True
         )
 
-    def forward(self, state, mode='RL'):
+    def forward(self, state, lstm_states, mode='RL'):
         """
         FUNCTION INPUTS:
         language_lstm_h: shape (1000)
@@ -86,8 +86,11 @@ class TopDownModel(torch.nn.Module):
         attention_lstm_input = torch.cat(
             (state['language_lstm_h'], state['pooled_img_features'],
              prev_word)).reshape(1, -1)
+
         attention_lstm_h, attention_lstm_c = self.attention_lstm(
-            attention_lstm_input)
+            input=attention_lstm_input,
+            h_0=lstm_states['attention_h'],
+            c_0=lstm_states['attention_c'])
 
         attended_features = self.attention_layer(
             state['img_features'], attention_lstm_h)
@@ -99,7 +102,11 @@ class TopDownModel(torch.nn.Module):
         # Eq (6):
         language_lstm_input = torch.cat((attended_features, attention_lstm_h),
                                         dim=1)
-        language_lstm_h, language_lstm_c = self.language_lstm(language_lstm_input)
+        language_lstm_h, language_lstm_c = self.language_lstm(
+            input=language_lstm_input,
+            h_0=lstm_states['language_h'],
+            c_0=lstm_states['language_c']
+        )
 
         # Eq (7):
         # (W_p * h^2_t + b_p)

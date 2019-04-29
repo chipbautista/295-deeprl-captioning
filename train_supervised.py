@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 import utils
 from agent import Agent
-from environment import Environment, ReplayMemory
+# from environment import Environment, ReplayMemory
 from data import MSCOCO_Supervised
 from settings import *
 
@@ -37,27 +37,29 @@ for e in range(10):
 
         # define initial state
         pooled_img_features = utils.pool_img_features(img_features)
-        # pooled_img_features = torch.sum(img_features, 1) / IMAGE_FEATURE_REGIONS
-        # pooled_img_features = pooled_img_features.reshape(-1)
-
-        for gt_index in [0] + gt_indeces:
-            # for pre-training, always input the correct previous words
-            prev_word_onehot = utils.encode_to_one_hot(gt_index)
-
-            state = {
-                'language_lstm_h': torch.Tensor(np.zeros(LSTM_HIDDEN_UNITS)).cuda(),  # (1000)
-                'pooled_img_features': torch.Tensor(pooled_img_features).cuda(),  # (1, 2048)
-                'prev_word_onehot': torch.Tensor(prev_word_onehot).cuda(),  # (10000,)
-                'img_features': torch.Tensor(img_features).cuda()  # (1, 36, 2048)
-            }
-
+        lstm_states = {
+            'language_h': None,
+            'language_c': None,
+            'attention_h': None,
+            'attention_c': None
+        }
+        state = {
+            'language_lstm_h': torch.Tensor(np.zeros(LSTM_HIDDEN_UNITS)).cuda(),  # (1000)
+            'pooled_img_features': torch.Tensor(pooled_img_features).cuda(),  # (1, 2048)
+            'prev_word_onehot': torch.Tensor(utils.encode_to_one_hot(0)).cuda(),  # (10000,)
+            'img_features': torch.Tensor(img_features).cuda()  # (1, 36, 2048)
+        }
+        for gt_index in gt_indeces:
             # INSTEAD OF THE PREDICTED WORD,
             # The agent should output the probability of the correct next word.
-            word_probabilities, language_lstm_h = agent.select_action(state)
+            word_probabilities, lstm_states = agent.select_action(
+                state, lstm_states)
             batch_loss += -torch.log(word_probabilities[gt_index])
 
             # Update state
-            state['language_lstm_h'] = language_lstm_h
+            state['language_lstm_h'] = lstm_states['language_h']
+            state['prev_word_onehot'] = torch.Tensor(
+                utils.encode_to_one_hot(gt_index)).cuda()
 
         if i % 64 == 0:
             epoch_loss += batch_loss.item()
@@ -65,7 +67,7 @@ for e in range(10):
             batch_loss = 0.0
 
     val_loss = 0.0
-    
+
     with torch.no_grad():
         agent.actor.eval()
         for (img_features, caption) in val_loader:
