@@ -5,6 +5,7 @@ import time
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
 
 import utils
 from agent import Agent
@@ -12,91 +13,106 @@ from agent import Agent
 from data import MSCOCO_Supervised
 from settings import *
 
-vocabulary = np.load('vocabulary.npy')
 
+def forward(b_img_features, b_captions):
+    batch_loss = 0.0
+    # will need to keep track of current batch size for the last iteration
+    # of train_loader when it can't form the whole batch size anymore.
+    curr_batch_size = b_img_features.shape[0]
+
+    # just some preprocessing here
+    b_indeces = [utils.caption_to_indeces(c, vocabulary)
+                 for c in b_captions]
+    b_indeces = pad_sequence(b_indeces, batch_first=True)
+    b_pooled_img_features = [
+        torch.sum(img_features, 0) / IMAGE_FEATURE_REGIONS
+        for img_features in b_img_features
+    ]
+
+    # define initial state
+    lstm_states = {
+        'language_h': None,
+        'language_c': None,
+        'attention_h': None,
+        'attention_c': None
+    }
+
+    state = {
+        # shape (b, 1000)
+        'language_lstm_h': torch.Tensor(
+            np.repeat([np.zeros(LSTM_HIDDEN_UNITS)], curr_batch_size, 0)
+        ).cuda(),
+        # shape (b, 1, 2048) stack converts a list of tensors into a tensor
+        'pooled_img_features': torch.stack(b_pooled_img_features).cuda(),
+        # shape (b, VOCABULARY_SIZE)
+        'prev_word_one_hot': torch.Tensor(np.repeat(
+            [utils.encode_to_one_hot(0)], curr_batch_size, 0)).cuda(),
+        # shape (b, 36, 2048)
+        'img_features': torch.Tensor(b_img_features).cuda()
+    }
+
+    for i in range(b_indeces.shape[1]):
+        b_gt_indeces = b_indeces[:, i]  # gt = ground truth
+
+        # INSTEAD OF THE PREDICTED WORD,
+        # The agent should output the probability of the correct next word.
+        word_probabilities, lstm_states = agent.select_action(
+            state, lstm_states)
+
+        # this just gets the probabilities of the ground truth words
+        # for each sample in the batch.
+        gt_indeces_probabilities = torch.stack([
+            word_probabilities[i][b_gt_indeces[i]]
+            for i in range(curr_batch_size)
+        ])
+        mean_loss = torch.mean(-torch.log(gt_indeces_probabilities))
+        batch_loss += mean_loss
+
+        # Update state
+        state['language_lstm_h'] = lstm_states['language_h']
+        state['prev_word_onehot'] = torch.Tensor(
+            [utils.encode_to_one_hot(gt_index)
+             for gt_index in b_gt_indeces]).cuda()
+
+    return batch_loss
+
+
+vocabulary = np.load('vocabulary.npy')
 agent = Agent(mode='supervised')
 
-train_loader = DataLoader(MSCOCO_Supervised('train'))
-val_loader = DataLoader(MSCOCO_Supervised('val'))
+train_loader = DataLoader(MSCOCO_Supervised('train'),
+                          batch_size=BATCH_SIZE, pin_memory=True)
+val_loader = DataLoader(MSCOCO_Supervised('val'),
+                        batch_size=BATCH_SIZE, pin_memory=True)
+# val_loader = DataLoader(MSCOCO_Supervised('val'))
 
 # env = Environment()
 # memory = ReplayMemory()
 
-agent.actor.train()
-for e in range(10):
+for e in range(20):
+    agent.actor.train()
     epoch_start = time.time()
-    epoch_loss = 0.0
-    batch_loss = 0.0
-    for i, (img_features, caption) in enumerate(train_loader):
-        gt_words = caption[0].split(' ')  # ground truth
-        try:
-            gt_indeces = [utils.word_to_index(w, vocabulary) for w in gt_words]
-        except IndexError:
-            # Skip over this caption if a word is not in the dict.
-            continue
+    tr_epoch_loss = 0.0
+    val_epoch_loss = 0.0
+    for b_img_features, b_captions in train_loader:
+        agent.actor_optim.zero_grad()
+        batch_loss = forward(b_img_features, b_captions)
+        batch_loss.backward(retain_graph=True)
+        agent.actor_optim.step()
+        tr_epoch_loss += batch_loss.item()
 
-        # define initial state
-        pooled_img_features = utils.pool_img_features(img_features)
-        lstm_states = {
-            'language_h': None,
-            'language_c': None,
-            'attention_h': None,
-            'attention_c': None
-        }
-        state = {
-            'language_lstm_h': torch.Tensor(np.zeros(LSTM_HIDDEN_UNITS)).cuda(),  # (1000)
-            'pooled_img_features': torch.Tensor(pooled_img_features).cuda(),  # (1, 2048)
-            'prev_word_onehot': torch.Tensor(utils.encode_to_one_hot(0)).cuda(),  # (10000,)
-            'img_features': torch.Tensor(img_features).cuda()  # (1, 36, 2048)
-        }
-        for gt_index in gt_indeces:
-            # INSTEAD OF THE PREDICTED WORD,
-            # The agent should output the probability of the correct next word.
-            word_probabilities, lstm_states = agent.select_action(
-                state, lstm_states)
-            batch_loss += -torch.log(word_probabilities[gt_index])
-
-            # Update state
-            state['language_lstm_h'] = lstm_states['language_h']
-            state['prev_word_onehot'] = torch.Tensor(
-                utils.encode_to_one_hot(gt_index)).cuda()
-
-        if i % 64 == 0:
-            epoch_loss += batch_loss.item()
-            agent.supervised_update(batch_loss)
-            batch_loss = 0.0
-
-    val_loss = 0.0
-
+    agent.actor.eval()
     with torch.no_grad():
-        agent.actor.eval()
-        for (img_features, caption) in val_loader:
-            gt_words = caption[0].split(' ')
-            try:
-                gt_indeces = [utils.word_to_index(w) for w in gt_words]
-            except IndexError:
-                continue
+        for b_img_features, b_captions in val_loader:
+            batch_loss = forward(b_img_features, b_captions)
+            val_epoch_loss += batch_loss.item()
 
-            pooled_img_features = utils.pool_img_features(img_features)
-            for gt_index in [0] + gt_indeces:
-                prev_word_onehot = utils.encode_to_one_hot(gt_index)
-                state = {
-                    'language_lstm_h': torch.Tensor(np.zeros(LSTM_HIDDEN_UNITS)).cuda(),  # (1000)
-                    'pooled_img_features': torch.Tensor(pooled_img_features).cuda(),  # (1, 2048)
-                    'prev_word_onehot': torch.Tensor(prev_word_onehot).cuda(),  # (10000,)
-                    'img_features': torch.Tensor(img_features).cuda()  # (1, 36, 2048)
-                }
-
-                word_probabilities, language_lstm_h = agent.select_action(state)
-                
-                val_loss += -torch.log(word_probabilities[gt_index])
-                state['language_lstm_h'] = language_lstm_h
-    
-    print('Epoch: {} Tr Loss: {} Val Loss: {}. {}s'.format(e, epoch_loss, val_loss, time.time() - epoch_start))
+    print('Epoch: {} Tr Loss: {} Val Loss: {}. {:.2f}s'.format(
+        e + 1, tr_epoch_loss, val_epoch_loss, time.time() - epoch_start))
 
 torch.save({
     'epoch': e,
-    'model_state_dict': actor.agent.state_dict(),
-    'optimizer_state_dict': actor.agent_optim.state_dict(),
-    'loss': epoch_loss
+    'model_state_dict': agent.actor.state_dict(),
+    'optimizer_state_dict': agent.actor_optim.state_dict(),
+    'loss': tr_epoch_loss
 })

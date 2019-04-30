@@ -74,23 +74,29 @@ class TopDownModel(torch.nn.Module):
         FUNCTION OUTPUT:
         word_index (argmaxed)
         """
+        language_lstm_prev = (None if lstm_states['language_h'] is None
+                              else (lstm_states['language_h'],
+                                    lstm_states['language_c']))
+        attention_lstm_prev = (None if lstm_states['attention_h'] is None
+                               else (lstm_states['attention_h'],
+                                     lstm_states['attention_c']))
 
         # Input to Attention LSTM should be concatenation of:
         # - previous hidden state of language LSTM
         # - mean-pooled image feature
         # - encoding of previously generated word
         # Resulting shape should be: 4048
-
-        prev_word = self.word_embedding(state['prev_word_onehot'])
+        prev_word = self.word_embedding(state['prev_word_one_hot'])
         # Eq (2):
+
         attention_lstm_input = torch.cat(
             (state['language_lstm_h'], state['pooled_img_features'],
-             prev_word)).reshape(1, -1)
+             prev_word), 1)
 
         attention_lstm_h, attention_lstm_c = self.attention_lstm(
-            input=attention_lstm_input,
-            h_0=lstm_states['attention_h'],
-            c_0=lstm_states['attention_c'])
+            attention_lstm_input,
+            attention_lstm_prev
+        )
 
         attended_features = self.attention_layer(
             state['img_features'], attention_lstm_h)
@@ -103,9 +109,8 @@ class TopDownModel(torch.nn.Module):
         language_lstm_input = torch.cat((attended_features, attention_lstm_h),
                                         dim=1)
         language_lstm_h, language_lstm_c = self.language_lstm(
-            input=language_lstm_input,
-            h_0=lstm_states['language_h'],
-            c_0=lstm_states['language_c']
+            language_lstm_input,
+            language_lstm_prev
         )
 
         # Eq (7):
@@ -124,7 +129,7 @@ class TopDownModel(torch.nn.Module):
             word_index = torch.argmax(word_probabilities, dim=1)
             return word_index[0], lstm_states
         else:
-            return word_probabilities[0], lstm_states
+            return word_probabilities, lstm_states
 
     def update(self, memory):
         print('Updating agent parameters...')
@@ -161,6 +166,7 @@ class AttentionLayer(torch.nn.Module):
         FUNCTION OUTPUT:
         attended_features: shape (1, 2048)
         """
+        curr_batch_size = img_features.shape[0]
         # shape (36, 512)
         # (W_va * v_i)
         weighted_features = self.linear_features(img_features)
@@ -171,13 +177,22 @@ class AttentionLayer(torch.nn.Module):
 
         # shape (36, 1)
         # Eq (3):
+
+        batch_sum_feature_layers = torch.stack([
+            weighted_features[i] + weighted_hidden_layer[i]
+            for i in range(curr_batch_size)
+        ])
+
         attention_weights = self.linear_attention(
-            torch.tanh(weighted_features + weighted_hidden_layer))
+            torch.tanh(batch_sum_feature_layers))
+        attention_weights = torch.transpose(attention_weights, 1, 2)
 
         # shape (1, 2048)
         # Eq (5):
+        # attended_features = torch.sum(
+        #     (attention_weights * img_features), dim=1)
         attended_features = torch.sum(
-            (attention_weights * img_features), dim=1)
+            torch.matmul(attention_weights, img_features), dim=1)
 
         return attended_features
 
