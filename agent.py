@@ -38,10 +38,10 @@ class Agent(object):
 class TopDownModel(torch.nn.Module):
     def __init__(self):
         super(TopDownModel, self).__init__()
-        self.word_embedding = torch.nn.Linear(
-            in_features=VOCABULARY_SIZE,
-            out_features=WORD_EMBEDDING_SIZE,
-            bias=True
+
+        self.word_embedding = torch.nn.Embedding(
+            num_embeddings=VOCABULARY_SIZE,
+            embedding_dim=WORD_EMBEDDING_SIZE
         )
 
         self.attention_lstm = torch.nn.LSTMCell(
@@ -86,7 +86,8 @@ class TopDownModel(torch.nn.Module):
         # - mean-pooled image feature
         # - encoding of previously generated word
         # Resulting shape should be: 4048
-        prev_word = self.word_embedding(state['prev_word_one_hot'])
+        # prev_word = self.word_embedding(state['prev_word_one_hot'])
+        prev_word = self.word_embedding(state['prev_word_indeces'])
         # Eq (2):
 
         attention_lstm_input = torch.cat(
@@ -116,7 +117,7 @@ class TopDownModel(torch.nn.Module):
         # Eq (7):
         # (W_p * h^2_t + b_p)
         word_logits = self.word_selection(language_lstm_h)
-        word_probabilities = F.softmax(word_logits, dim=1)
+        # word_probabilities = F.softmax(word_logits, dim=1)
 
         lstm_states = {
             'language_h': language_lstm_h,
@@ -125,11 +126,11 @@ class TopDownModel(torch.nn.Module):
             'attention_c': attention_lstm_c
         }
 
-        if mode == 'RL':
-            word_index = torch.argmax(word_probabilities, dim=1)
-            return word_index[0], lstm_states
-        else:
-            return word_probabilities, lstm_states
+        # if mode == 'RL':
+        #     word_index = torch.argmax(word_probabilities, dim=1)
+        #     return word_index[0], lstm_states
+        # else:
+        return word_logits, lstm_states
 
     def update(self, memory):
         print('Updating agent parameters...')
