@@ -24,6 +24,12 @@ class Agent(object):
             lr=LEARNING_RATE,
             momentum=MOMENTUM,
             nesterov=True)
+        self.actor_optim = torch.optim.lr_scheduler.StepLR(
+            self.actor_optim,
+            step_size=3,
+            gamma=0.8
+        )
+
         # self.actor_optim = torch.optim.Adam(
         #     self.actor.parameters(), lr=LEARNING_RATE)
         # self.critic = TopDownModel_MLP()
@@ -195,10 +201,6 @@ class AttentionLayer(torch.nn.Module):
 
         # shape (1, 2048)
         # Eq (5):
-        # attended_features = torch.sum(
-        #     (attention_weights * img_features), dim=1)
-        # attended_features = torch.sum(
-        #     torch.matmul(attention_weights, img_features), dim=1)
         attended_features = torch.matmul(
             attention_weights, img_features).reshape(-1, IMAGE_FEATURE_DIM)
 

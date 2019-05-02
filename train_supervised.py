@@ -63,7 +63,6 @@ def forward(b_img_features, b_captions):
         #     word_probabilities[i][b_gt_indeces[i]]
         #     for i in range(curr_batch_size)
         # ])
-        # mean_loss = torch.mean(-torch.log(gt_indeces_probabilities))
         mean_loss = cross_entropy(input=word_logits,
                                   target=b_gt_indeces.cuda(),
                                   size_average=True, ignore_index=0)
@@ -77,29 +76,35 @@ def forward(b_img_features, b_captions):
     return batch_loss
 
 
+RUN_IDENTIFIER = time.strftime('%m%d-%H%M-E')
+
+
 agent = Agent(mode='supervised')
 vocabulary = np.load('vocabulary.npy')
-train_loader = DataLoader(MSCOCO_Supervised('train'), batch_size=BATCH_SIZE,
+
+train_loader = DataLoader(MSCOCO_Supervised('train', LOAD_IMG_TO_MEMORY),
+                          batch_size=BATCH_SIZE,
                           shuffle=SHUFFLE, pin_memory=True)
-val_loader = DataLoader(MSCOCO_Supervised('val'), batch_size=BATCH_SIZE,
+val_loader = DataLoader(MSCOCO_Supervised('val', LOAD_IMG_TO_MEMORY),
+                        batch_size=BATCH_SIZE,
                         shuffle=SHUFFLE, pin_memory=True)
 
 # env = Environment()
 # memory = ReplayMemory()
 
-print('\nStarting training...')
+print('\nRUN #', RUN_IDENTIFIER[:-2])
 print('BATCH SIZE: ', BATCH_SIZE)
 print('LEARNING RATE: ', LEARNING_RATE)
 
-for e in range(50):
+
+for e in range(100):
     agent.actor.train()
     epoch_start = time.time()
 
-    forward_total_time = 0
-    backward_total_time = 0
-
+    min_val_loss = 2000.0
     tr_epoch_loss = 0.0
     val_epoch_loss = 0.0
+
     for b_img_features, b_captions in train_loader:
         agent.actor_optim.zero_grad()
 
@@ -117,9 +122,12 @@ for e in range(50):
     print('Epoch: {} Tr Loss: {:.2f} Val Loss: {:.2f}. {:.2f}s'.format(
         e + 1, tr_epoch_loss, val_epoch_loss, time.time() - epoch_start))
 
-torch.save({
-    'epoch': e,
-    'model_state_dict': agent.actor.state_dict(),
-    'optimizer_state_dict': agent.actor_optim.state_dict(),
-    'loss': tr_epoch_loss
-}, '930pmwed')
+    if val_epoch_loss < min_val_loss:
+        print('Lower validation loss achieved. Saving model.')
+        torch.save({
+            'epoch': e,
+            'model_state_dict': agent.actor.state_dict(),
+            'optimizer_state_dict': agent.actor_optim.state_dict(),
+            'tr_loss': tr_epoch_loss,
+            'val_loss': val_epoch_loss
+        }, MODEL_DIR.format(RUN_IDENTIFIER + str(e)))

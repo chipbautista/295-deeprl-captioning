@@ -29,15 +29,15 @@ class MSCOCO(Dataset):
 
 
 class MSCOCO_Supervised(Dataset):
-    def __init__(self, split):
-        # self.img_ids = LOCAL_IDS
+    def __init__(self, split, load_images=True):
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
-            self.img_ids = f.read().split('\n')[:-1][:10000]
+            self.img_ids = f.read().split('\n')[:-1]
 
-        self.load_img_features()
+        self.load_images = load_images
+        if self.load_images:
+            self.load_img_features()
 
         self.coco_captions = COCO(CAPTIONS_DIR.format(split))
-        self.vocabulary = np.load('vocabulary.npy')
 
     def load_img_features(self):
         self.img_features = [np.load(FEATURES_DIR.format(img_id))
@@ -52,9 +52,13 @@ class MSCOCO_Supervised(Dataset):
         caption_ids = self.coco_captions.getAnnIds(imgIds=int(img_id))
         # get a random caption
         caption_id = np.random.choice(caption_ids)
-        caption = self.coco_captions.loadAnns([caption_id])[0]['caption']
-        # preprocess caption into indeces of each word
-        return (self.img_features[index], self._clean(caption) + ' <EOS>')
+        caption = self._clean(
+            self.coco_captions.loadAnns([caption_id])[0]['caption']) + ' <EOS>'
+
+        if self.load_images:
+            return (self.img_features[index], caption)
+        else:
+            return (np.load(FEATURES_DIR.format(img_id)), caption)
 
     def _clean(self, caption):
         return sub(r'[^\w ]', '', caption.lower()).strip()

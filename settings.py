@@ -3,17 +3,19 @@ CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
 KARPATHY_SPLIT_DIR = '../data/karpathy_splits/coco2014_cocoid.{}.txt'
 FEATURES_DIR = '../data/features/extracts/{}.npy'
 MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
+MODEL_DIR = '../models/{}'
 
 # Hyperparameters
 DISCOUNT_FACTOR = 0.95
-LEARNING_RATE = 0.01
-MOMENTUM = 0.95
+LEARNING_RATE = 5e-4
+MOMENTUM = 0.99
 BATCH_SIZE = 128
 SHUFFLE = True
 
 # Environment
 MAX_WORDS = 30
 MEMORY_CAPACITY = 100
+LOAD_IMG_TO_MEMORY = False
 
 # Network dimensions (hardcoding here haha...)
 # Follows Bottom-Up Top-Down paper.
