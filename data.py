@@ -32,7 +32,7 @@ class MSCOCO_Supervised(Dataset):
     def __init__(self, split):
         # self.img_ids = LOCAL_IDS
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
-            self.img_ids = f.read().split('\n')[:-1]
+            self.img_ids = f.read().split('\n')[:-1][:10000]
 
         self.load_img_features()
 
@@ -54,7 +54,7 @@ class MSCOCO_Supervised(Dataset):
         caption_id = np.random.choice(caption_ids)
         caption = self.coco_captions.loadAnns([caption_id])[0]['caption']
         # preprocess caption into indeces of each word
-        return (self.img_features[index], self._clean(caption))
+        return (self.img_features[index], self._clean(caption) + ' <EOS>')
 
     def _clean(self, caption):
         return sub(r'[^\w ]', '', caption.lower()).strip()

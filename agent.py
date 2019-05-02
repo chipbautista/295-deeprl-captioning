@@ -19,7 +19,13 @@ class Agent(object):
         self.mode = mode
 
         self.actor = TopDownModel().cuda()
-        self.actor_optim = torch.optim.Adam(self.actor.parameters())
+        self.actor_optim = torch.optim.SGD(
+            self.actor.parameters(),
+            lr=LEARNING_RATE,
+            momentum=MOMENTUM,
+            nesterov=True)
+        # self.actor_optim = torch.optim.Adam(
+        #     self.actor.parameters(), lr=LEARNING_RATE)
         # self.critic = TopDownModel_MLP()
         # self.critic_optim = torch.optim.Adam(self.critic.parameters())
 
@@ -109,6 +115,7 @@ class TopDownModel(torch.nn.Module):
         # Eq (6):
         language_lstm_input = torch.cat((attended_features, attention_lstm_h),
                                         dim=1)
+
         language_lstm_h, language_lstm_c = self.language_lstm(
             language_lstm_input,
             language_lstm_prev
@@ -157,9 +164,6 @@ class AttentionLayer(torch.nn.Module):
         """
         Follows the attention model described in Section 3.2.1
 
-        IDK what to do with Eq (4),
-        the notation a and alpha I think were confused.
-
         FUNCTION INPUTS:
         img_features: shape (36, 2048)
         hidden_layer: shape (1000)
@@ -170,30 +174,33 @@ class AttentionLayer(torch.nn.Module):
         curr_batch_size = img_features.shape[0]
         # shape (36, 512)
         # (W_va * v_i)
-        weighted_features = self.linear_features(img_features)
+        encoded_features = self.linear_features(img_features)
 
-        # shape (1, 512). will this broadcast if added to (36, 512)?
+        # shape (1, 512).
         # (W_ha * h^1_t)
-        weighted_hidden_layer = self.linear_hidden(hidden_layer)
+        encoded_hidden_layer = self.linear_hidden(hidden_layer)
 
         # shape (36, 1)
         # Eq (3):
-
         batch_sum_feature_layers = torch.stack([
-            weighted_features[i] + weighted_hidden_layer[i]
+            encoded_features[i] + encoded_hidden_layer[i]
             for i in range(curr_batch_size)
         ])
 
         attention_weights = self.linear_attention(
             torch.tanh(batch_sum_feature_layers))
+        # Eq (4):
+        attention_weights = F.softmax(attention_weights)
         attention_weights = torch.transpose(attention_weights, 1, 2)
 
         # shape (1, 2048)
         # Eq (5):
         # attended_features = torch.sum(
         #     (attention_weights * img_features), dim=1)
-        attended_features = torch.sum(
-            torch.matmul(attention_weights, img_features), dim=1)
+        # attended_features = torch.sum(
+        #     torch.matmul(attention_weights, img_features), dim=1)
+        attended_features = torch.matmul(
+            attention_weights, img_features).reshape(-1, IMAGE_FEATURE_DIM)
 
         return attended_features
 

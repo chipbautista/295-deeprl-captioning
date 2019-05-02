@@ -7,7 +7,8 @@ MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
 # Hyperparameters
 DISCOUNT_FACTOR = 0.95
 LEARNING_RATE = 0.01
-BATCH_SIZE = 512
+MOMENTUM = 0.95
+BATCH_SIZE = 128
 SHUFFLE = True
 
 # Environment

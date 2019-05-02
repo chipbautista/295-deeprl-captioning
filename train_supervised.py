@@ -64,7 +64,6 @@ def forward(b_img_features, b_captions):
         #     for i in range(curr_batch_size)
         # ])
         # mean_loss = torch.mean(-torch.log(gt_indeces_probabilities))
-
         mean_loss = cross_entropy(input=word_logits,
                                   target=b_gt_indeces.cuda(),
                                   size_average=True, ignore_index=0)
@@ -88,7 +87,9 @@ val_loader = DataLoader(MSCOCO_Supervised('val'), batch_size=BATCH_SIZE,
 # env = Environment()
 # memory = ReplayMemory()
 
-print('Starting training...')
+print('\nStarting training...')
+print('BATCH SIZE: ', BATCH_SIZE)
+print('LEARNING RATE: ', LEARNING_RATE)
 
 for e in range(50):
     agent.actor.train()
