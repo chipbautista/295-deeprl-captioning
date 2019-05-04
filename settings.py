@@ -5,20 +5,21 @@ FEATURES_DIR = '../data/features/extracts/{}.npy'
 MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
 MODEL_DIR = '../models/{}'
 
-# Hyperparameters
-DISCOUNT_FACTOR = 0.95
+# Neural Network Training Settings
 LEARNING_RATE = 5e-4
 MOMENTUM = 0.9
 BATCH_SIZE = 128
 SHUFFLE = True
+MAX_EPOCH = 50
 
-# Environment / Data Settings
+# RL Training Settings
+DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
-MEMORY_CAPACITY = 100
-LOAD_IMG_TO_MEMORY = False
-USE_ALL_CAPTIONS = True
 
-# Network dimensions (hardcoding here haha...)
+# Data Settings
+PAIR_ALL_CAPTIONS = True
+
+# Network Architecture
 # Follows Bottom-Up Top-Down paper.
 LSTM_HIDDEN_UNITS = 1000
 ATTENTION_HIDDEN_UNITS = 512

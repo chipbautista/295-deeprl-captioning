@@ -14,7 +14,7 @@ from settings import *
 
 
 class Agent(object):
-    def __init__(self, mode='RL'):
+    def __init__(self):
         # just a hacky way to use this class for supervised learning... :(
         self.mode = mode
 
@@ -35,14 +35,14 @@ class Agent(object):
 
         self.DISCOUNT = DISCOUNT_FACTOR
 
-    def select_action(self, state, lstm_states):
-        return self.actor(state, lstm_states, self.mode)
+    def forward(self, state, lstm_states):
+        return self.actor(state, lstm_states)
 
-    def supervised_update(self, loss):
-        # For supervised only! RL training to be written next.
-        self.actor_optim.zero_grad()
-        loss.backward(retain_graph=True)
-        self.actor_optim.step()
+    def update_policy(self, advantages, log_probabilities):
+        loss = torch.stack(advantages * log_probabilities).sum()
+        # will this work? It's not a legit PyTorch-registered Loss function
+        loss.backward()
+        print('Updating agent policy...')
 
 
 class TopDownModel(torch.nn.Module):
@@ -74,7 +74,7 @@ class TopDownModel(torch.nn.Module):
             bias=True
         )
 
-    def forward(self, state, lstm_states, mode='RL'):
+    def forward(self, state, lstm_states):
         """
         FUNCTION INPUTS:
         language_lstm_h: shape (1000)
@@ -137,15 +137,7 @@ class TopDownModel(torch.nn.Module):
             'attention_c': attention_lstm_c
         }
 
-        # if mode == 'RL':
-        #     word_index = torch.argmax(word_probabilities, dim=1)
-        #     return word_index[0], lstm_states
-        # else:
         return word_logits, lstm_states
-
-    def update(self, memory):
-        print('Updating agent parameters...')
-        pass
 
 
 class AttentionLayer(torch.nn.Module):
