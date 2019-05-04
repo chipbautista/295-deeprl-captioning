@@ -24,14 +24,12 @@ class Agent(object):
             lr=LEARNING_RATE,
             momentum=MOMENTUM,
             nesterov=True)
-        self.actor_optim = torch.optim.lr_scheduler.StepLR(
+        self.actor_optim_scheduler = torch.optim.lr_scheduler.StepLR(
             self.actor_optim,
-            step_size=3,
-            gamma=0.8
+            step_size=2,
+            gamma=0.9
         )
 
-        # self.actor_optim = torch.optim.Adam(
-        #     self.actor.parameters(), lr=LEARNING_RATE)
         # self.critic = TopDownModel_MLP()
         # self.critic_optim = torch.optim.Adam(self.critic.parameters())
 

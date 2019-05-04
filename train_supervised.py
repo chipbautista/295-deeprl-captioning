@@ -82,10 +82,10 @@ RUN_IDENTIFIER = time.strftime('%m%d-%H%M-E')
 agent = Agent(mode='supervised')
 vocabulary = np.load('vocabulary.npy')
 
-train_loader = DataLoader(MSCOCO_Supervised('train', LOAD_IMG_TO_MEMORY),
+train_loader = DataLoader(MSCOCO_Supervised('train'),
                           batch_size=BATCH_SIZE,
                           shuffle=SHUFFLE, pin_memory=True)
-val_loader = DataLoader(MSCOCO_Supervised('val', LOAD_IMG_TO_MEMORY),
+val_loader = DataLoader(MSCOCO_Supervised('val'),
                         batch_size=BATCH_SIZE,
                         shuffle=SHUFFLE, pin_memory=True)
 
@@ -101,18 +101,25 @@ for e in range(100):
     agent.actor.train()
     epoch_start = time.time()
 
-    min_val_loss = 2000.0
+    min_val_loss = 20000.0
     tr_epoch_loss = 0.0
     val_epoch_loss = 0.0
 
-    for b_img_features, b_captions in train_loader:
+    in_epoch_loss = 0.0
+    for i, (b_img_features, b_captions) in enumerate(train_loader):
         agent.actor_optim.zero_grad()
-
         batch_loss = forward(b_img_features, b_captions)
         batch_loss.backward()
         agent.actor_optim.step()
-        tr_epoch_loss += batch_loss.item()
 
+        tr_epoch_loss += batch_loss.item()
+        in_epoch_loss += batch_loss.item()
+
+        if (i + 1) % 200 == 0:
+            print('Tr loss 200 batches: ', in_epoch_loss)
+            in_epoch_loss = 0.0
+
+    agent.actor_optim_scheduler.step()
     agent.actor.eval()
     with torch.no_grad():
         for b_img_features, b_captions in val_loader:
@@ -131,3 +138,4 @@ for e in range(100):
             'tr_loss': tr_epoch_loss,
             'val_loss': val_epoch_loss
         }, MODEL_DIR.format(RUN_IDENTIFIER + str(e)))
+        min_val_loss = val_epoch_loss

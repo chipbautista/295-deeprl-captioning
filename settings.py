@@ -8,14 +8,15 @@ MODEL_DIR = '../models/{}'
 # Hyperparameters
 DISCOUNT_FACTOR = 0.95
 LEARNING_RATE = 5e-4
-MOMENTUM = 0.99
+MOMENTUM = 0.9
 BATCH_SIZE = 128
 SHUFFLE = True
 
-# Environment
+# Environment / Data Settings
 MAX_WORDS = 30
 MEMORY_CAPACITY = 100
 LOAD_IMG_TO_MEMORY = False
+USE_ALL_CAPTIONS = True
 
 # Network dimensions (hardcoding here haha...)
 # Follows Bottom-Up Top-Down paper.

@@ -29,36 +29,57 @@ class MSCOCO(Dataset):
 
 
 class MSCOCO_Supervised(Dataset):
-    def __init__(self, split, load_images=True):
+    def __init__(self, split):
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
             self.img_ids = f.read().split('\n')[:-1]
+        self.coco_captions = COCO(CAPTIONS_DIR.format(split))
 
-        self.load_images = load_images
-        if self.load_images:
+        if USE_ALL_CAPTIONS:
+            # this results to 414,113 image-caption pairs
+            self.pair_all_captions()
+
+        if LOAD_IMG_TO_MEMORY:
             self.load_img_features()
 
-        self.coco_captions = COCO(CAPTIONS_DIR.format(split))
+    def pair_all_captions(self):
+        self.img_caption_pairs = []
+        for img_id in self.img_ids:
+            caption_ids = self.coco_captions.getAnnIds(imgIds=int(img_id))
+            captions = [self._preprocess(c['caption']) for c in
+                        self.coco_captions.loadAnns(caption_ids)]
+            self.img_caption_pairs.extend([
+                (img_id, caption) for caption in captions
+            ])
 
     def load_img_features(self):
         self.img_features = [np.load(FEATURES_DIR.format(img_id))
                              for img_id in self.img_ids]
 
     def __len__(self):
+        if USE_ALL_CAPTIONS:
+            return len(self.img_caption_pairs)
         return len(self.img_ids)
 
     def __getitem__(self, index):
+        if USE_ALL_CAPTIONS:
+            img_id, caption = self.img_caption_pairs[index]
+            return (
+                np.load(FEATURES_DIR.format(img_id)),
+                caption
+            )
+
         img_id = self.img_ids[index]
         # load captions for this image
         caption_ids = self.coco_captions.getAnnIds(imgIds=int(img_id))
         # get a random caption
         caption_id = np.random.choice(caption_ids)
-        caption = self._clean(
-            self.coco_captions.loadAnns([caption_id])[0]['caption']) + ' <EOS>'
+        caption = self._preprocess(
+            self.coco_captions.loadAnns([caption_id])[0]['caption'])
 
-        if self.load_images:
+        if LOAD_IMG_TO_MEMORY:
             return (self.img_features[index], caption)
         else:
             return (np.load(FEATURES_DIR.format(img_id)), caption)
 
-    def _clean(self, caption):
-        return sub(r'[^\w ]', '', caption.lower()).strip()
+    def _preprocess(self, caption):
+        return sub(r'[^\w ]', '', caption.lower()).strip() + ' <EOS>'
