@@ -8,6 +8,7 @@ MODEL_DIR = '../models/{}'
 # Neural Network Training Settings
 LEARNING_RATE = 5e-4
 MOMENTUM = 0.9
+LR_DECAY_PER_EPOCH = 0.9
 BATCH_SIZE = 128
 SHUFFLE = True
 MAX_EPOCH = 50
@@ -15,6 +16,7 @@ MAX_EPOCH = 50
 # RL Training Settings
 DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
+MODEL_WEIGHTS = MODEL_DIR.format('0503-2245-E16')
 
 # Data Settings
 PAIR_ALL_CAPTIONS = True

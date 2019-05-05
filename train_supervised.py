@@ -1,10 +1,10 @@
-"""
-"""
+
 import time
 
 import torch
 from torch.utils.data import DataLoader
 from torch.nn.functional import cross_entropy
+from numpy import count_nonzero
 
 from agent import Agent
 from environment import Environment
@@ -12,36 +12,49 @@ from data import MSCOCO
 from settings import *
 
 
+# for testing
+# from agent import TopDownModel
+# import numpy as np
+# import torch.nn.functional as F
+# policy = TopDownModel().cuda()
+# policy.load_state_dict(
+#     torch.load('../models/0505-1404-E49')['model_state_dict'])
+
+
 def forward(img_features, captions):
-    batch_loss = 0.0
     indeces, state, lstm_states = env.reset(
         img_features, captions)
+    raw_loss = 0.0
+
     for i in range(indeces.shape[1]):
         gt_indeces = indeces[:, i]  # gt = ground truth
         word_logits, lstm_states = agent.forward(
             state, lstm_states)
 
-        # this just gets the probabilities of the ground truth words
-        # for each sample in the batch.
-        # gt_indeces_probabilities = torch.stack([
-        #     word_probabilities[i][b_gt_indeces[i]]
-        #     for i in range(curr_batch_size)
-        # ])
-        mean_loss = cross_entropy(input=word_logits,
+        raw_loss += cross_entropy(input=word_logits,
                                   target=gt_indeces.cuda(),
-                                  size_average=True, ignore_index=0)
-        batch_loss += mean_loss
+                                  reduction='sum', ignore_index=0)
+
+        # probs = F.softmax(word_logits, dim=1).detach().cpu().numpy()
+        # top_5 = np.argsort(probs)[0][-5:]
+        # word = env.probs_to_word(probs, 'greedy')
+        # print('GT word: ', env.vocabulary[gt_indeces[0]],)
+        # print('Pred word: ', word)
+        # print('Top 5 words: ', env.vocabulary[top_5])
+        # print('With P: ', probs[0][top_5])
+
         # Update state
         state['language_lstm_h'] = lstm_states['language_h']
         # Teacher forcing
         state['prev_word_indeces'] = torch.LongTensor(gt_indeces).cuda()
 
-    return batch_loss
+    # mean batch loss
+    return raw_loss / count_nonzero(indeces)
 
 
 RUN_IDENTIFIER = time.strftime('%m%d-%H%M-E')
-
 agent = Agent()
+# agent.actor = policy
 train_loader = DataLoader(MSCOCO('train'),
                           batch_size=BATCH_SIZE, shuffle=SHUFFLE)
 val_loader = DataLoader(MSCOCO('val'),
@@ -51,10 +64,10 @@ env = Environment()
 print('\nRUN #', RUN_IDENTIFIER[:-2])
 print('BATCH SIZE: ', BATCH_SIZE)
 print('LEARNING RATE: ', LEARNING_RATE)
+print('TOTAL BATCHES: ', len(train_loader), '\n')
 
-
+agent.actor.train()
 for e in range(MAX_EPOCH):
-    agent.actor.train()
     epoch_start = time.time()
 
     min_val_loss = 20000.0
@@ -72,11 +85,10 @@ for e in range(MAX_EPOCH):
         in_epoch_loss += batch_loss.item()
 
         # prints out accumulated batch loss for sanity :(
-        if (i + 1) % 200 == 0:
-            print('Tr loss 200 batches: ', in_epoch_loss)
+        if (i + 1) % 300 == 0:
+            print('Tr loss 300 batches: ', in_epoch_loss)
             in_epoch_loss = 0.0
 
-    agent.actor.eval()
     with torch.no_grad():
         for img_features, captions in val_loader:
             batch_loss = forward(img_features, captions)

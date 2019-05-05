@@ -57,8 +57,10 @@ class Environment(object):
             # shape (b, 1, 2048) stack converts a list of tensors into a tensor
             'pooled_img_features': torch.stack(b_pooled_img_features).cuda(),
             # shape (b, VOCABULARY_SIZE)
-            'prev_word_one_hot': torch.Tensor(np.repeat(
-                [utils.encode_to_one_hot(0)], curr_batch_size, 0)).cuda(),
+            # 'prev_word_one_hot': torch.Tensor(np.repeat(
+            #     [self.encode_to_one_hot(0)], curr_batch_size, 0)).cuda(),
+            'prev_word_indeces': torch.zeros(curr_batch_size,
+                                             dtype=torch.int64).cuda(),
             # shape (b, 36, 2048)
             'img_features': torch.Tensor(b_img_features).cuda()
         }
@@ -111,3 +113,8 @@ class Environment(object):
             indeces = np.zeros(len(words))
 
         return torch.LongTensor(indeces)
+
+    def encode_to_one_hot(self, index):
+        onehot = np.zeros(VOCABULARY_SIZE)
+        onehot[index] = 1
+        return onehot

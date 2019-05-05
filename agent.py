@@ -15,9 +15,6 @@ from settings import *
 
 class Agent(object):
     def __init__(self):
-        # just a hacky way to use this class for supervised learning... :(
-        self.mode = mode
-
         self.actor = TopDownModel().cuda()
         self.actor_optim = torch.optim.SGD(
             self.actor.parameters(),
@@ -27,7 +24,7 @@ class Agent(object):
         self.actor_optim_scheduler = torch.optim.lr_scheduler.StepLR(
             self.actor_optim,
             step_size=2,
-            gamma=0.9
+            gamma=LR_DECAY_PER_EPOCH
         )
 
         # self.critic = TopDownModel_MLP()
@@ -51,7 +48,8 @@ class TopDownModel(torch.nn.Module):
 
         self.word_embedding = torch.nn.Embedding(
             num_embeddings=VOCABULARY_SIZE,
-            embedding_dim=WORD_EMBEDDING_SIZE
+            embedding_dim=WORD_EMBEDDING_SIZE,
+            padding_idx=0
         )
 
         self.attention_lstm = torch.nn.LSTMCell(
@@ -59,6 +57,11 @@ class TopDownModel(torch.nn.Module):
             hidden_size=LSTM_HIDDEN_UNITS,
             bias=True
         )
+        # self.attention_lstm = torch.nn.LSTM(
+        #     input_size=ATTENTION_LSTM_INPUT_SIZE,
+        #     hidden_size=LSTM_HIDDEN_UNITS,
+        #     batch_first=True
+        # )
 
         self.attention_layer = AttentionLayer().cuda()
 
@@ -96,7 +99,6 @@ class TopDownModel(torch.nn.Module):
         # - mean-pooled image feature
         # - encoding of previously generated word
         # Resulting shape should be: 4048
-        # prev_word = self.word_embedding(state['prev_word_one_hot'])
         prev_word = self.word_embedding(state['prev_word_indeces'])
         # Eq (2):
 
@@ -124,11 +126,9 @@ class TopDownModel(torch.nn.Module):
             language_lstm_input,
             language_lstm_prev
         )
-
         # Eq (7):
         # (W_p * h^2_t + b_p)
         word_logits = self.word_selection(language_lstm_h)
-        # word_probabilities = F.softmax(word_logits, dim=1)
 
         lstm_states = {
             'language_h': language_lstm_h,
@@ -186,7 +186,7 @@ class AttentionLayer(torch.nn.Module):
         attention_weights = self.linear_attention(
             torch.tanh(batch_sum_feature_layers))
         # Eq (4):
-        attention_weights = F.softmax(attention_weights)
+        attention_weights = F.softmax(attention_weights, dim=1)
         attention_weights = torch.transpose(attention_weights, 1, 2)
 
         # shape (1, 2048)
