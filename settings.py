@@ -1,3 +1,6 @@
+from torch import cuda
+USE_CUDA = cuda.is_available()
+
 # Files
 CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
 KARPATHY_SPLIT_DIR = '../data/karpathy_splits/coco2014_cocoid.{}.txt'
@@ -16,10 +19,13 @@ MAX_EPOCH = 50
 # RL Training Settings
 DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
-MODEL_WEIGHTS = MODEL_DIR.format('0503-2245-E16')
+MODEL_WEIGHTS = MODEL_DIR.format('0505-2050-E10')
 
 # Data Settings
 PAIR_ALL_CAPTIONS = True
+RESULT_DIR = '../data/{}_results.json'
+#  http://cocodataset.org/#format-results
+
 
 # Network Architecture
 # Follows Bottom-Up Top-Down paper.

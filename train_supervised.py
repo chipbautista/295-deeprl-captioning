@@ -12,15 +12,6 @@ from data import MSCOCO
 from settings import *
 
 
-# for testing
-# from agent import TopDownModel
-# import numpy as np
-# import torch.nn.functional as F
-# policy = TopDownModel().cuda()
-# policy.load_state_dict(
-#     torch.load('../models/0505-1404-E49')['model_state_dict'])
-
-
 def forward(img_features, captions):
     indeces, state, lstm_states = env.reset(
         img_features, captions)
@@ -35,14 +26,6 @@ def forward(img_features, captions):
                                   target=gt_indeces.cuda(),
                                   reduction='sum', ignore_index=0)
 
-        # probs = F.softmax(word_logits, dim=1).detach().cpu().numpy()
-        # top_5 = np.argsort(probs)[0][-5:]
-        # word = env.probs_to_word(probs, 'greedy')
-        # print('GT word: ', env.vocabulary[gt_indeces[0]],)
-        # print('Pred word: ', word)
-        # print('Top 5 words: ', env.vocabulary[top_5])
-        # print('With P: ', probs[0][top_5])
-
         # Update state
         state['language_lstm_h'] = lstm_states['language_h']
         # Teacher forcing
@@ -54,7 +37,9 @@ def forward(img_features, captions):
 
 RUN_IDENTIFIER = time.strftime('%m%d-%H%M-E')
 agent = Agent()
-# agent.actor = policy
+agent.actor.load_state_dict(
+    torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
+
 train_loader = DataLoader(MSCOCO('train'),
                           batch_size=BATCH_SIZE, shuffle=SHUFFLE)
 val_loader = DataLoader(MSCOCO('val'),

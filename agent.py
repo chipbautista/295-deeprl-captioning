@@ -15,7 +15,11 @@ from settings import *
 
 class Agent(object):
     def __init__(self):
-        self.actor = TopDownModel().cuda()
+        if USE_CUDA:
+            self.actor = TopDownModel().cuda()
+        else:
+            self.actor = TopDownModel()
+
         self.actor_optim = torch.optim.SGD(
             self.actor.parameters(),
             lr=LEARNING_RATE,
@@ -26,7 +30,6 @@ class Agent(object):
             step_size=2,
             gamma=LR_DECAY_PER_EPOCH
         )
-
         # self.critic = TopDownModel_MLP()
         # self.critic_optim = torch.optim.Adam(self.critic.parameters())
 
@@ -34,6 +37,35 @@ class Agent(object):
 
     def forward(self, state, lstm_states):
         return self.actor(state, lstm_states)
+
+    def inference(self, state, lstm_states, env,
+                  mode='sample'):
+        """
+        Unfold LSTM for inference.
+        - `mode` is either "sample" or "greedy". Defines how to get the word
+        from the obtained probabilities. Word obtained from this is used as
+        the next input to the LSTM.
+        - `greedy` is either True or False. Used when calculating self-critical
+        advantage value.
+        Does not make sense to set this to True if mode=='greedy' already.
+        """
+        predicted_words = []
+        for _ in range(MAX_WORDS):
+            word_logits, lstm_states = self.actor(state, lstm_states)
+
+            # get actual words
+            probs = F.softmax(word_logits, dim=1).detach().numpy()
+            # or: probs = F.softmax(word_logits, dim=1).detach().cpu().numpy()
+            word_idx, word = env.probs_to_word(probs[0], mode)
+            predicted_words.append(word)
+
+            if word == '<EOS>':
+                break
+
+            # for next iteration
+            state['language_lstm_h'] = lstm_states['language_h']
+            state['prev_word_indeces'] = torch.LongTensor([word_idx])
+        return predicted_words
 
     def update_policy(self, advantages, log_probabilities):
         loss = torch.stack(advantages * log_probabilities).sum()
@@ -57,13 +89,8 @@ class TopDownModel(torch.nn.Module):
             hidden_size=LSTM_HIDDEN_UNITS,
             bias=True
         )
-        # self.attention_lstm = torch.nn.LSTM(
-        #     input_size=ATTENTION_LSTM_INPUT_SIZE,
-        #     hidden_size=LSTM_HIDDEN_UNITS,
-        #     batch_first=True
-        # )
 
-        self.attention_layer = AttentionLayer().cuda()
+        self.attention_layer = AttentionLayer()
 
         self.language_lstm = torch.nn.LSTMCell(
             input_size=LANGUAGE_LSTM_INPUT_SIZE,
