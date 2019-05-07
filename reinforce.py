@@ -11,11 +11,8 @@ from settings import *
 from data import MSCOCO
 
 
-# Try Monte-Carlo First
-
-
 env = Environment()
-agent = Agent()
+agent = Agent(LEARNING_RATE_RL)
 agent.actor.load_state_dict(
     torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
 
@@ -84,8 +81,7 @@ for e in range(MAX_EPOCH):
             ground_truth, greedy_captions)
 
         # self-critical: score from sampling - score from test time algo
-        advantages = torch.Tensor(
-            (sample_scores - greedy_scores).reshape(-1))
+        advantages = torch.Tensor((sample_scores - greedy_scores).reshape(-1))
         # try normalizing the advantage
         # norm_advantages = (
         #     (advantages - advantages.mean()) /

@@ -19,7 +19,7 @@ class MSCOCO(Dataset):
         # 1 sample = [image, 1 caption]
         self.evaluation = evaluation
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
-            self.img_ids = f.read().split('\n')[:-1][:200]
+            self.img_ids = f.read().split('\n')[:-1]
 
         self.coco = COCO(CAPTIONS_DIR.format(split))
 

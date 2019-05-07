@@ -15,7 +15,7 @@ from settings import *
 
 
 class Agent(object):
-    def __init__(self):
+    def __init__(self, learning_rate=LEARNING_RATE):
         if USE_CUDA:
             self.actor = TopDownModel().cuda()
         else:
@@ -23,7 +23,7 @@ class Agent(object):
 
         self.actor_optim = torch.optim.SGD(
             self.actor.parameters(),
-            lr=LEARNING_RATE,
+            lr=learning_rate,
             momentum=MOMENTUM,
             nesterov=True)
         self.actor_optim_scheduler = torch.optim.lr_scheduler.StepLR(
