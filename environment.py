@@ -78,9 +78,6 @@ class Environment(object):
             'img_features': torch.Tensor(b_img_features)
         }
 
-        if USE_CUDA:
-            state = {k: v.cuda() for k, v in state.items()}
-
         return b_indeces, state, lstm_states
 
     # def get_metrics(self, captions, predicted_words):

@@ -19,17 +19,20 @@ def forward(img_features, captions):
 
     for i in range(indeces.shape[1]):
         gt_indeces = indeces[:, i]  # gt = ground truth
+        if USE_CUDA:
+            gt_indeces = gt_indeces.cuda()
+
         word_logits, lstm_states = agent.forward(
             state, lstm_states)
 
         raw_loss += cross_entropy(input=word_logits,
-                                  target=gt_indeces.cuda(),
+                                  target=gt_indeces,
                                   reduction='sum', ignore_index=0)
 
         # Update state
         state['language_lstm_h'] = lstm_states['language_h']
         # Teacher forcing
-        state['prev_word_indeces'] = torch.LongTensor(gt_indeces).cuda()
+        state['prev_word_indeces'] = torch.LongTensor(gt_indeces)
 
     # mean batch loss
     return raw_loss / count_nonzero(indeces)

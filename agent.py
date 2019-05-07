@@ -62,7 +62,7 @@ class Agent(object):
                     probs[0].detach().cpu().numpy(), mode)
             else:
                 word_idx, word = env.probs_to_word(
-                    probs[0].detach().cpu().numpy(), mode)
+                    probs[0].detach().numpy(), mode)
 
             # need to get the probability from the original `probs` variable
             # to retain the graph
@@ -133,7 +133,7 @@ class TopDownModel(torch.nn.Module):
                                      lstm_states['attention_c']))
 
         if USE_CUDA:
-            state = state.cuda()
+            state = {k: v.cuda() for k, v in state.items()}
 
         # Input to Attention LSTM should be concatenation of:
         # - previous hidden state of language LSTM
