@@ -7,6 +7,7 @@ https://github.com/ruotianluo/self-critical.pytorch/blob/master/models/AttModel.
 
 For training actor-critic, follow this implementation:
 https://github.com/pranz24/pytorch-soft-actor-critic/blob/master/sac.py
+^ ABORT THIS
 """
 import torch
 import torch.nn.functional as F
@@ -30,46 +31,54 @@ class Agent(object):
             step_size=2,
             gamma=LR_DECAY_PER_EPOCH
         )
-        # self.critic = TopDownModel_MLP()
-        # self.critic_optim = torch.optim.Adam(self.critic.parameters())
 
         self.DISCOUNT = DISCOUNT_FACTOR
 
     def forward(self, state, lstm_states):
         return self.actor(state, lstm_states)
 
-    def inference(self, state, lstm_states, env,
-                  mode='sample'):
+    def inference(self, state, lstm_states, env, mode='sample', join=True):
         """
+        BECAUSE OF NON-FIXED SEQUENCE LENGTH, FOR NOW,
+        THIS ONLY WORKS FOR ONE SAMPLE AT A TIME!
+
         Unfold LSTM for inference.
         - `mode` is either "sample" or "greedy". Defines how to get the word
         from the obtained probabilities. Word obtained from this is used as
         the next input to the LSTM.
-        - `greedy` is either True or False. Used when calculating self-critical
-        advantage value.
-        Does not make sense to set this to True if mode=='greedy' already.
         """
         predicted_words = []
+        probabilities = []
+        # the p of a sentence is the product of each word's p
+        running_p = 1.0
         for _ in range(MAX_WORDS):
             word_logits, lstm_states = self.actor(state, lstm_states)
 
             # get actual words
-            probs = F.softmax(word_logits, dim=1).detach().numpy()
-            # or: probs = F.softmax(word_logits, dim=1).detach().cpu().numpy()
-            word_idx, word = env.probs_to_word(probs[0], mode)
-            predicted_words.append(word)
+            probs = F.softmax(word_logits, dim=1)
+            # if using CUDA: probs = F.softmax(word_logits, dim=1).detach().cpu().numpy()
 
+            word_idx, word = env.probs_to_word(
+                probs[0].detach().numpy(), mode)
+
+            # need to get the probability from the original `probs` variable
+            # to retain the graph
+            running_p = running_p * probs[0][word_idx]
+            probabilities.append()
+            predicted_words.append(word)
             if word == '<EOS>':
                 break
 
             # for next iteration
             state['language_lstm_h'] = lstm_states['language_h']
             state['prev_word_indeces'] = torch.LongTensor([word_idx])
-        return predicted_words
+
+        if join:
+            predicted_words = ' '.join(predicted_words)
+        return predicted_words, running_p
 
     def update_policy(self, advantages, log_probabilities):
         loss = torch.stack(advantages * log_probabilities).sum()
-        # will this work? It's not a legit PyTorch-registered Loss function
         loss.backward()
         print('Updating agent policy...')
 
@@ -128,7 +137,6 @@ class TopDownModel(torch.nn.Module):
         # Resulting shape should be: 4048
         prev_word = self.word_embedding(state['prev_word_indeces'])
         # Eq (2):
-
         attention_lstm_input = torch.cat(
             (state['language_lstm_h'], state['pooled_img_features'],
              prev_word), 1)
@@ -223,14 +231,3 @@ class AttentionLayer(torch.nn.Module):
 
         return attended_features
 
-
-class TopDownModel_MLP(torch.nn.Module):
-    # To-do. Need to clear Critic architecture first.
-    def __init__(self):
-        super(TopDownModel_MLP, self).__init__()
-        self.topdown = TopDownModel()
-        self.hidden_1 = torch.nn.Linear()
-        self.hidden_2 = torch.nn.Linear()
-
-    def forward(self):
-        pass

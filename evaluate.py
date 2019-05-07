@@ -19,14 +19,11 @@ from data import MSCOCO
 from settings import *
 
 
-def get_captions(img_features):
-    _, state, lstm_states = env.reset(img_features)
-    # sampled_words = agent.inference(state, lstm_states, env)
-    greedy_words = agent.inference(state, lstm_states, env, 'greedy')
-    return _, greedy_words
-
-
 # too lazy to implement args...
+# Given a command "python my_script.py ABC DEF"
+# sys.argv[1] corresponds to "ABC"
+# and sys.argv[2] corresponds to 'DEF'
+# Useful for specifying which split to evaluate on. (default is test.)
 try:
     split = sys.argv[1]
 except IndexError:
@@ -39,8 +36,9 @@ except IndexError:
 
 env = Environment()
 agent = Agent()
+# If using CUDA, remove the map_location!
 agent.actor.load_state_dict(
-    torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
+    torch.load(weights_file, map_location='cpu')['model_state_dict'])
 
 MSCOCO_dataset = MSCOCO(split, evaluation=True)
 loader = DataLoader(MSCOCO_dataset, shuffle=True)
@@ -52,9 +50,12 @@ for i, (img_id, img_features, captions) in enumerate(loader):
     # individual caption is a tuple with one element. need to do [0].
     # captions = [c[0] for c in captions]
 
-    sampled_words, greedy_words = get_captions(img_features)
-    # sampled_caption = ' '.join(sampled_words[:-1])
-    greedy_caption = ' '.join(greedy_words[:-1])
+    _, init_state, init_lstm_states = env.reset(img_features)
+    with torch.no_grad():
+        # sampled_caption, _ = agent.inference(
+        #     init_state, init_lstm_states, env)
+        greedy_caption, _ = agent.inference(
+            init_state, init_lstm_states, env, 'greedy')
 
     # print('Ex: GT Caption: ', captions[2])
     # print('Sampled caption: ', sampled_caption,
@@ -90,4 +91,4 @@ cocoEval.params['image_id'] = cocoRes.getImgIds()
 # SPICE will take a few minutes the first time, but speeds up due to caching
 cocoEval.evaluate()
 
-# Optional: code to see low-scoring captions
+# Optional: code to see low-scoring captions. See their ipynb for usage.

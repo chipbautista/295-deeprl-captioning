@@ -1,3 +1,13 @@
+import sys
+
+# ye, doing this the CS freshie way yeseeeess
+sys.path.append('pycocoevalcap')
+sys.path.append('pycocoevalcap/bleu')
+sys.path.append('pycocoevalcap/meteor')
+sys.path.append('pycocoevalcap/rouge')
+sys.path.append('pycocoevalcap/spice')
+sys.path.append('pycocoevalcap/cider')
+
 
 # from nltk.translate.bleu_score import sentence_bleu
 import numpy as np
@@ -5,16 +15,20 @@ import torch
 # from torch.nn.functional import cosine_similarity
 from torch.nn.utils.rnn import pad_sequence
 # from bert_serving.client import BertClient
+from cider.cider import Cider
 
 from settings import *
 
-
+# Run this first if using BERT encodings:
+# bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ 
+# add "-cpu" if running on CPU.
 # bert_client = BertClient()
 
 
 class Environment(object):
     def __init__(self):
         self.vocabulary = np.load('vocabulary.npy')
+        self.cider = Cider()
 
     def reset(self, b_img_features, b_captions=None):
         """
@@ -69,21 +83,26 @@ class Environment(object):
 
         return b_indeces, state, lstm_states
 
-    def get_context_reward(self, caption, gt_mean_context):
-        caption_context = bert.encode(caption)
-        # get dot product
-        distance = 0
-        return distance, (True if caption[-5:] == '<EOS>' else False)
-
-    def get_metrics(self, captions, predicted_words):
+    # def get_metrics(self, captions, predicted_words):
         # bleu_score = sentence_bleu(
         #     references=[c.split() for c in captions],
         #     hypothesis=predicted_words)
         # return bleu_score
-        return None
+        # return None
+
+    def get_cider_score(self, gt_captions, pred_caption):
+        """
+        input should be a dict where
+        - key is the image_id
+        - value for key is a list of captions
+        """
+        return self.cider.compute_score(gt_captions, pred_caption)
 
     def probs_to_word(self, probabilities, mode='sample'):
         if mode == 'sample':
+            # Get random word, But for finetuning with RL,
+            # (Rennie and anderson's paper)
+            # references use beam search. Should try implementing later.
             idx = np.random.choice(len(self.vocabulary), p=probabilities)
             return idx, self.vocabulary[idx]
 
@@ -98,6 +117,8 @@ class Environment(object):
         try:
             indeces = [_to_index(w) for w in words]
         except IndexError:
+            # If the word was not included in the extracted vocab,
+            # just ignore it.
             indeces = np.zeros(len(words))
 
         return torch.LongTensor(indeces)

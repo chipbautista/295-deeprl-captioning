@@ -19,7 +19,7 @@ class MSCOCO(Dataset):
         # 1 sample = [image, 1 caption]
         self.evaluation = evaluation
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
-            self.img_ids = f.read().split('\n')[:-1]
+            self.img_ids = f.read().split('\n')[:-1][:200]
 
         self.coco = COCO(CAPTIONS_DIR.format(split))
 
@@ -51,12 +51,11 @@ class MSCOCO(Dataset):
 
         # Case 2: When we're doing RL training and want to get all the
         # image's captions. Also for evaluating caption score.
+        # Note that for case 2, we also pass the img_id.
+        captions = [self._preprocess(c['caption'])
+                    for c in self.coco.loadAnns(caption_ids)]
         if self.evaluation:
-            return (img_id,
-                    img_features,
-                    [self._preprocess(c['caption'])
-                     for c in self.coco.loadAnns(caption_ids)]
-                    )
+            return (img_id, img_features, captions)
 
         # Case 3: When we just randomly choose a caption for each image
         caption_id = np.random.choice(caption_ids)

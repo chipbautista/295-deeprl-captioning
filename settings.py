@@ -9,7 +9,7 @@ MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
 MODEL_DIR = '../models/{}'
 
 # Neural Network Training Settings
-LEARNING_RATE = 5e-4
+LEARNING_RATE = 0.001
 MOMENTUM = 0.9
 LR_DECAY_PER_EPOCH = 0.9
 BATCH_SIZE = 128
@@ -17,9 +17,10 @@ SHUFFLE = True
 MAX_EPOCH = 50
 
 # RL Training Settings
+BATCH_SIZE_RL = 10
 DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
-MODEL_WEIGHTS = MODEL_DIR.format('0505-2050-E10')
+MODEL_WEIGHTS = MODEL_DIR.format('0505-2050-E10')  # 0506-1246-E6
 
 # Data Settings
 PAIR_ALL_CAPTIONS = True
