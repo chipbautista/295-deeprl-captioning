@@ -42,7 +42,7 @@ for e in range(MAX_EPOCH):
 
         sampled_captions = []
         greedy_captions = []
-        sampled_probs = []
+        sampled_log_probs = []
         for img_feat in img_features:  # each iteration is a single image
             _, init_state, init_lstm_states = env.reset(img_feat)
             sampled_caption, probs = agent.inference(
@@ -51,11 +51,9 @@ for e in range(MAX_EPOCH):
                 greedy_caption, _ = agent.inference(
                     init_state, init_lstm_states, env, 'greedy')
 
-            sampled_probs.append(probs)
+            sampled_log_probs.append(probs)
             sampled_captions.append(sampled_caption)
             greedy_captions.append(greedy_caption)
-
-        log_probs = torch.log(torch.stack(sampled_probs))
 
         # just some rearranging of variables
         # sampled_predictions = predictions[:, 0]
@@ -84,22 +82,14 @@ for e in range(MAX_EPOCH):
         advantages = torch.Tensor((sample_scores - greedy_scores).reshape(-1))
         if USE_CUDA:
             advantages = advantages.cuda()
-        # try normalizing the advantage
-        # norm_advantages = (
-        #     (advantages - advantages.mean()) /
-        #     (advantages.std() + 1e-9)
-        # )
-        # print(log_probs.mean())
-        # print(log_probs)
 
-        loss = -(advantages * log_probs).mean()
-        # loss.backward()
-        # print('* LR: ', loss.item() * LEARNING_RATE)
+        loss = -(advantages * torch.stack(sampled_log_probs)).mean()
+        loss.backward()
         agent.actor_optim.step()
 
         batch_rewards.append(mean_sample_scores)
-        # print('[B] Loss: {:.2f}. Mean reward: {:.2f}. Mean advantage: {:.2f}'.format(
-        #     loss.item(), mean_sample_scores, advantages.mean()))
+        print('[B] Loss: {:.2f}. Mean reward: {:.2f}. Mean advantage: {:.2f}'.format(
+            loss.item(), mean_sample_scores, advantages.mean()))
 
     print('Epoch {}. Mean batch reward: {:.2f}'.format(
         e, np.mean(batch_rewards)))

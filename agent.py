@@ -50,7 +50,7 @@ class Agent(object):
         predicted_words = []
         # the p of a sentence is the product of each word's p (if im right...)
         # Eq (8) of Bottom-Up Top-Down Paper
-        running_p = 1.0
+        running_log_p = 0.0
         for _ in range(MAX_WORDS):
             word_logits, lstm_states = self.actor(state, lstm_states)
 
@@ -66,7 +66,7 @@ class Agent(object):
 
             # need to get the probability from the original `probs` variable
             # to retain the graph
-            running_p = running_p * probs[0][word_idx]
+            running_log_p += torch.log(probs[0][word_idx])
             predicted_words.append(word)
             if word == '<EOS>':
                 break
@@ -77,7 +77,7 @@ class Agent(object):
 
         if join:
             predicted_words = ' '.join(predicted_words)
-        return predicted_words, running_p
+        return predicted_words, running_log_p
 
     def update_policy(self, advantages, log_probabilities):
         loss = torch.stack(advantages * log_probabilities).sum()

@@ -17,9 +17,7 @@ SHUFFLE = True
 MAX_EPOCH = 50
 
 # RL Training Settings
-# I dont understand why it needs a very small LR to stabilize.
-# Any higher than 5e-8 and you'll get -inf's.
-LEARNING_RATE_RL = 5e-8
+LEARNING_RATE_RL = 0.01
 BATCH_SIZE_RL = 20
 DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
