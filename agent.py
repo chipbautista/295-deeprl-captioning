@@ -57,9 +57,12 @@ class Agent(object):
             # get actual words
             probs = F.softmax(word_logits, dim=1)
 
-            # if using CUDA: probs[0].detach().cpu().numpy()
-            word_idx, word = env.probs_to_word(
-                probs[0].detach().numpy(), mode)
+            if USE_CUDA:
+                word_idx, word = env.probs_to_word(
+                    probs[0].detach().cpu().numpy(), mode)
+            else:
+                word_idx, word = env.probs_to_word(
+                    probs[0].detach().cpu().numpy(), mode)
 
             # need to get the probability from the original `probs` variable
             # to retain the graph
@@ -128,6 +131,9 @@ class TopDownModel(torch.nn.Module):
         attention_lstm_prev = (None if lstm_states['attention_h'] is None
                                else (lstm_states['attention_h'],
                                      lstm_states['attention_c']))
+
+        if USE_CUDA:
+            state = state.cuda()
 
         # Input to Attention LSTM should be concatenation of:
         # - previous hidden state of language LSTM
