@@ -82,6 +82,8 @@ for e in range(MAX_EPOCH):
 
         # self-critical: score from sampling - score from test time algo
         advantages = torch.Tensor((sample_scores - greedy_scores).reshape(-1))
+        if USE_CUDA:
+            advantages = advantages.cuda()
         # try normalizing the advantage
         # norm_advantages = (
         #     (advantages - advantages.mean()) /

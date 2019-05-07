@@ -20,7 +20,7 @@ MAX_EPOCH = 50
 # I dont understand why it needs a very small LR to stabilize.
 # Any higher than 5e-8 and you'll get -inf's.
 LEARNING_RATE_RL = 5e-8
-BATCH_SIZE_RL = 30
+BATCH_SIZE_RL = 20
 DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
 MODEL_WEIGHTS = MODEL_DIR.format('0505-2050-E10')  # 0506-1246-E6
