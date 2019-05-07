@@ -1,6 +1,5 @@
 import time
-# from multiprocessing import Pool
-from torch.multiprocessing import Pool
+# from torch.multiprocessing import Pool
 
 import numpy as np
 import torch
@@ -27,8 +26,6 @@ train_loader = DataLoader(MSCOCO('val', evaluation=True),
 for e in range(MAX_EPOCH):
     batch_rewards = []
     epoch_start = time.time()
-    # play each image separately because we don't know how long
-    # each generated sentence will be
     for i, (img_ids, img_features, captions) in enumerate(train_loader):
         agent.actor_optim.zero_grad()
 
@@ -49,7 +46,7 @@ for e in range(MAX_EPOCH):
         sampled_captions = []
         greedy_captions = []
         sampled_probs = []
-        for img_feat in img_features:
+        for img_feat in img_features:  # each iteration is a single image
             _, init_state, init_lstm_states = env.reset(img_feat)
             sampled_caption, probs = agent.inference(
                 init_state, init_lstm_states, env)
@@ -89,14 +86,23 @@ for e in range(MAX_EPOCH):
         # self-critical: score from sampling - score from test time algo
         advantages = torch.Tensor(
             (sample_scores - greedy_scores).reshape(-1))
+        # try normalizing the advantage
+        # norm_advantages = (
+        #     (advantages - advantages.mean()) /
+        #     (advantages.std() + 1e-9)
+        # )
+        # print(log_probs.mean())
+        # print(log_probs)
+
         loss = -(advantages * log_probs).mean()
-        loss.backward()
+        # loss.backward()
+        # print('* LR: ', loss.item() * LEARNING_RATE)
         agent.actor_optim.step()
 
         batch_rewards.append(mean_sample_scores)
-        print('[B] Loss: {:.2f}. Mean reward: {:.2f}. Mean advantage: {:.2f}'.format(
-            loss.item(), mean_sample_scores, advantages.mean()))
+        # print('[B] Loss: {:.2f}. Mean reward: {:.2f}. Mean advantage: {:.2f}'.format(
+        #     loss.item(), mean_sample_scores, advantages.mean()))
 
-    import pdb; pdb.set_trace()
-    print('Mean batch reward: {:.2f}'.format(batch_rewards.mean()))
+    print('Epoch {}. Mean batch reward: {:.2f}'.format(
+        e, np.mean(batch_rewards)))
     print('Elapsed: {:.2f}'.format(time.time() - epoch_start))

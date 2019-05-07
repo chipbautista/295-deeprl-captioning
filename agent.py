@@ -48,23 +48,22 @@ class Agent(object):
         the next input to the LSTM.
         """
         predicted_words = []
-        probabilities = []
-        # the p of a sentence is the product of each word's p
+        # the p of a sentence is the product of each word's p (if im right...)
+        # Eq (8) of Bottom-Up Top-Down Paper
         running_p = 1.0
         for _ in range(MAX_WORDS):
             word_logits, lstm_states = self.actor(state, lstm_states)
 
             # get actual words
             probs = F.softmax(word_logits, dim=1)
-            # if using CUDA: probs = F.softmax(word_logits, dim=1).detach().cpu().numpy()
 
+            # if using CUDA: probs[0].detach().cpu().numpy()
             word_idx, word = env.probs_to_word(
                 probs[0].detach().numpy(), mode)
 
             # need to get the probability from the original `probs` variable
             # to retain the graph
             running_p = running_p * probs[0][word_idx]
-            probabilities.append()
             predicted_words.append(word)
             if word == '<EOS>':
                 break
