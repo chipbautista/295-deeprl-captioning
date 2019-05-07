@@ -1,5 +1,4 @@
 import time
-# from torch.multiprocessing import Pool
 
 import numpy as np
 import torch
@@ -11,34 +10,39 @@ from settings import *
 from data import MSCOCO
 
 
+def captions_to_coco_format(img_ids, captions):
+    return {
+        img_id: [cap]
+        for img_id, cap in zip(img_ids, captions)
+    }
+
+
+RUN_IDENTIFIER = time.strftime('RL-%m%d-%H%M-E')
 env = Environment()
 agent = Agent(LEARNING_RATE_RL)
-agent.actor.load_state_dict(
-    torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
 
-train_loader = DataLoader(MSCOCO('val', evaluation=True),
+agent.actor.load_state_dict(torch.load(
+    MODEL_WEIGHTS, map_location=None if USE_CUDA else 'cpu'
+)['model_state_dict'])
+
+train_loader = DataLoader(MSCOCO('train', evaluation=True),
                           batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE)
-# val_loader = DataLoader(MSCOCO('val', evaluation=True), shuffle=SHUFFLE)
+val_loader = DataLoader(MSCOCO('val', evaluation=True),
+                        batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE)
 
-for e in range(MAX_EPOCH):
-    batch_rewards = []
+min_val_reward = 0.0
+for e in range(10):
     epoch_start = time.time()
-    for i, (img_ids, img_features, captions) in enumerate(train_loader):
-        agent.actor_optim.zero_grad()
 
-        # pytorch's dataloader does something to the lists,
-        # but i dont need it and i dont know how to turn it off.
-        # so have to do this:
-        captions = np.array(captions).T
+    # TRAINING
+    rewards = []
+    for img_ids, img_features, captions in train_loader:
+        agent.actor_optim.zero_grad()
 
         # original shape: (5, 36, 2048), but when accessed per sample,
         # the resulting shape is (36, 2048), need it to be (1, 36, 2048)
         # use .unsqueeze() to make the original shape (5, 1, 36, 2048)
         img_features = img_features.unsqueeze(1)
-
-        # run them async (for monte-carlo case.) (how to make this work?)
-        # with Pool() as p:
-        #     predictions = p.map(agent.predict_captions, img_features)
 
         sampled_captions = []
         greedy_captions = []
@@ -55,22 +59,17 @@ for e in range(MAX_EPOCH):
             sampled_captions.append(sampled_caption)
             greedy_captions.append(greedy_caption)
 
-        # just some rearranging of variables
-        # sampled_predictions = predictions[:, 0]
-        # sampled_p = torch.Tensor(predictions[:, 1].astype('float32'))
-        # greedy_predictions = predictions[:, 2]
-        # sampled_p = predictions[:, 3]  # don't need this actually?
+        # pytorch's dataloader does something to the lists,
+        # but i dont need it and i dont know how to turn it off.
+        # so have to do this:
+        captions = np.array(captions).T
 
         # transform ground truth and results to the format needed for eval
         ground_truth = dict(zip(img_ids, map(list, captions)))
-        sampled_captions = {
-            img_id: [pred]
-            for img_id, pred in zip(img_ids, sampled_captions)
-        }
-        greedy_captions = {
-            img_id: [pred]
-            for img_id, pred in zip(img_ids, greedy_captions)
-        }
+        sampled_captions = captions_to_coco_format(
+            img_ids, sampled_captions)
+        greedy_captions = captions_to_coco_format(
+            img_ids, greedy_captions)
 
         # calculate CIDEr scores
         mean_sample_scores, sample_scores = env.get_cider_score(
@@ -86,11 +85,41 @@ for e in range(MAX_EPOCH):
         loss = -(advantages * torch.stack(sampled_log_probs)).mean()
         loss.backward()
         agent.actor_optim.step()
+        rewards.append(mean_sample_scores)
 
-        batch_rewards.append(mean_sample_scores)
-        print('[B] Loss: {:.2f}. Mean reward: {:.2f}. Mean advantage: {:.2f}'.format(
-            loss.item(), mean_sample_scores, advantages.mean()))
+    # VALIDATION
+    rewards_val = []
+    with torch.no_grad():
+        for img_ids, img_features, captions in val_loader:
+            img_features = img_features.unsqueeze(1)
+            greedy_captions = []
+            for img_feat in img_features:
+                greedy_caption, _ = agent.inference(
+                    init_state, init_lstm_states, env, 'greedy')
+                greedy_captions.append(greedy_caption)
 
-    print('Epoch {}. Mean batch reward: {:.2f}'.format(
-        e, np.mean(batch_rewards)))
-    print('Elapsed: {:.2f}'.format(time.time() - epoch_start))
+            captions = np.array(captions).T
+            ground_truth = dict(zip(img_ids, map(list, captions)))
+            greedy_captions = captions_to_coco_format(
+                img_ids, greedy_captions)
+            mean_greedy_scores, _ = env.get_cider_score(
+                ground_truth, greedy_captions)
+            rewards_val.append(mean_greedy_scores)
+
+    val_reward = np.mean(rewards_val)
+
+    # print('[B] Loss: {:.2f}. Mean reward: {:.2f}. Mean advantage: {:.2f}'.format(
+    #     loss.item(), mean_sample_scores, advantages.mean()))
+
+    print('Epoch {}. R train: {:.2f} R val: {:.2f}. {:.2f}'.format(
+        e, np.mean(rewards), val_reward,
+        time.time() - epoch_start))
+
+    if val_reward > min_val_reward:
+        min_val_reward = val_reward
+        print('Higher mean validation reward achieved. Saving model.')
+        torch.save({
+            'epoch': e,
+            'model_state_dict': agent.actor.state_dict(),
+            'optimizer_state_dict': agent.actor_optim.state_dict()
+        }, MODEL_DIR.format(RUN_IDENTIFIER + str(e)))

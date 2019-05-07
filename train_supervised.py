@@ -54,11 +54,11 @@ print('BATCH SIZE: ', BATCH_SIZE)
 print('LEARNING RATE: ', LEARNING_RATE)
 print('TOTAL BATCHES: ', len(train_loader), '\n')
 
+min_val_loss = 20000.0
 agent.actor.train()
 for e in range(MAX_EPOCH):
     epoch_start = time.time()
 
-    min_val_loss = 20000.0
     tr_epoch_loss = 0.0
     val_epoch_loss = 0.0
 
