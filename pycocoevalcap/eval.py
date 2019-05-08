@@ -43,7 +43,7 @@ class COCOEvalCap:
         gts_ = {}
         for img_id, captions in gts.items():
             gts_[img_id] = [
-                sub(r'[^\w ]', '', a['caption'].lower()).strip()
+                sub(r'[^\w ]', '', (a['caption'] + ' <EOS>').lower()).strip()
                 for a in captions]
         res_ = {}
         for img_id, captions in res.items():
