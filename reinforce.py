@@ -18,16 +18,33 @@ agent.actor.load_state_dict(torch.load(
     MODEL_WEIGHTS, map_location=None if USE_CUDA else 'cpu'
 )['model_state_dict'])
 
-train_loader = DataLoader(MSCOCO('val', evaluation=True),
+train_loader = DataLoader(MSCOCO('train', evaluation=True),
                           batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE)
 val_loader = DataLoader(MSCOCO('val', evaluation=True),
                         shuffle=SHUFFLE)
+
+with torch.no_grad():
+    val_ground_truths = {}
+    greedy_captions = {}
+    for img_ids, img_features, captions in val_loader:  # per sample
+        _, init_state, init_lstm_states = env.reset(img_features)
+        greedy_caption, _ = agent.inference(
+            init_state, init_lstm_states, env, 'greedy')
+
+        val_ground_truths[img_ids[0]] = list(np.array(captions).T[0])
+        greedy_captions[img_ids[0]] = [greedy_caption]
+
+    _, val_greedy_scores = env.get_cider_score(
+        val_ground_truths, greedy_captions)
+    val_reward = np.mean(val_greedy_scores)
+print('Starting val CIDEr score: ', val_reward)
 
 print('RUN IDENTIFIER: ', RUN_IDENTIFIER)
 print('LEARNING RATE: ', LEARNING_RATE_RL)
 print('BATCH SIZE: ', BATCH_SIZE_RL)
 print('\nStarting REINFORCE training.\n')
-max_val_reward = 0.0
+
+max_val_reward = val_reward
 for e in range(10):
     epoch_start = time.time()
 
