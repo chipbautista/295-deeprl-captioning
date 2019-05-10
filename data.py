@@ -49,7 +49,6 @@ class MSCOCO(Dataset):
             caption_ids = self.coco.getAnnIds(imgIds=int(img_id))
             captions = [self._preprocess(c['caption']) for c in
                         self.coco.loadAnns(caption_ids)]
-            num_captions.append(len(captions))
             self.img_caption_pairs.extend([
                 (img_id, caption) for caption in captions
             ])
