@@ -32,7 +32,11 @@ class MSCOCO(Dataset):
             # need to do this to load the correct COCO data
             split = 'val' if split == 'test' else split
 
-        self.coco = COCO(CAPTIONS_DIR.format(split))
+        if split == 'train':
+            # combine
+            self.coco = self._load_train_and_val()
+        else:
+            self.coco = COCO(CAPTIONS_DIR.format(split))
 
         if not self.evaluation and PAIR_ALL_CAPTIONS:
             # Pair images to all its ground truth captions
@@ -45,6 +49,7 @@ class MSCOCO(Dataset):
             caption_ids = self.coco.getAnnIds(imgIds=int(img_id))
             captions = [self._preprocess(c['caption']) for c in
                         self.coco.loadAnns(caption_ids)]
+            num_captions.append(len(captions))
             self.img_caption_pairs.extend([
                 (img_id, caption) for caption in captions
             ])
@@ -86,3 +91,16 @@ class MSCOCO(Dataset):
         # Basically removes non-alphanumeric characters,
         # converts to undercase, and adds <EOS>
         return ' '.join([sub(r'[^\w ]', '', caption.lower()).strip(), '<EOS>'])
+
+    def _load_train_and_val(self):
+        train_coco = COCO(CAPTIONS_DIR.format('train'))
+        val_coco = COCO(CAPTIONS_DIR.format('val'))
+
+        train_coco.anns.update(val_coco.anns)
+        train_coco.imgs.update(val_coco.imgs)
+        train_coco.imgToAnns.update(val_coco.imgToAnns)
+        # train_coco.catToImgs += val_coco.catToImgs
+        # train_coco.cats += val_coco.cats
+        # train_coco.dataset.update(val_coco.dataset)
+        print('Merged COCO training and validation sets for training.')
+        return train_coco
