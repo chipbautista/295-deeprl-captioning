@@ -3,25 +3,29 @@ USE_CUDA = cuda.is_available()
 
 # Files
 CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
-KARPATHY_SPLIT_DIR = '../data/karpathy_splits/coco2014_cocoid.{}.txt'
+# KARPATHY_SPLIT_DIR = '../data/karpathy_splits/coco2014_cocoid.{}.txt'
+KARPATHY_SPLIT_DIR = '../data/karpathy_splits/karpathy_{}_images.txt'
 FEATURES_DIR = '../data/features/extracts/{}.npy'
 MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
 MODEL_DIR = '../models/{}'
 
 # Neural Network Training Settings
-LEARNING_RATE = 5e-4
+LEARNING_RATE = 0.01
 MOMENTUM = 0.9
-LR_DECAY_PER_EPOCH = 0.9
-BATCH_SIZE = 128
+LR_DECAY_PER_EPOCH = 0.1
+BATCH_SIZE = 100
 SHUFFLE = True
 MAX_EPOCH = 50
 
 # RL Training Settings
-LEARNING_RATE_RL = 5e-4
+LEARNING_RATE_RL = 5e-6
 BATCH_SIZE_RL = 20
 DISCOUNT_FACTOR = 0.95
 MAX_WORDS = 30
-MODEL_WEIGHTS = MODEL_DIR.format('0507-1702-E1')  # Old model: 0505-2050-E10
+MODEL_WEIGHTS = MODEL_DIR.format('0505-2050-E10')
+# for pc: 0507-1702-E1
+# for mac: 0505-2050-E10
+
 
 # Data Settings
 PAIR_ALL_CAPTIONS = True

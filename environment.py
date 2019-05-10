@@ -20,7 +20,7 @@ from cider.cider import Cider
 from settings import *
 
 # Run this first if using BERT encodings:
-# bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ 
+# bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ -max_seq_len 35
 # add "-cpu" if running on CPU.
 # bert_client = BertClient()
 
@@ -86,14 +86,6 @@ class Environment(object):
         #     hypothesis=predicted_words)
         # return bleu_score
         # return None
-
-    def get_cider_score(self, gt_captions, pred_caption):
-        """
-        input should be a dict where
-        - key is the image_id
-        - value for key is a list of captions
-        """
-        return self.cider.compute_score(gt_captions, pred_caption)
 
     def probs_to_word(self, probabilities, mode='sample'):
         if mode == 'sample':

@@ -38,10 +38,11 @@ def forward(img_features, captions):
     return raw_loss / count_nonzero(indeces)
 
 
-RUN_IDENTIFIER = time.strftime('%m%d-%H%M-E')
+RUN_IDENTIFIER = time.strftime('RETRAIN-%m%d-%H%M-E')
+
 agent = Agent()
-agent.actor.load_state_dict(
-    torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
+# agent.actor.load_state_dict(
+#     torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
 
 train_loader = DataLoader(MSCOCO('train'),
                           batch_size=BATCH_SIZE, shuffle=SHUFFLE)

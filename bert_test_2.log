@@ -1,0 +1,57 @@
+----- Trial  1 -----
+loading annotations into memory...
+Done (t=0.67s)
+creating index...
+index created!
+Extracting BERT context vectors...
+Mean Eucl Distance:  8.496495 with STD:  1.04883
+Mean Eucl Distance STD:  1.4138479 with STD:  0.5291696
+Mean Manhattan Distance:  186.0986464315718 with STD:  23.132939518609618
+Mean Manhattan Distance STD:  30.882609735693723 with STD:  11.704341064656854
+Mean Dot Distance:  11.122494 with STD:  0.7765034
+Mean Dot Distance STD:  1.0288936 with STD:  0.35604972
+--- UNPAIRED ---
+Mean Eucl Distance:  10.078907 with STD:  0.6961595
+Mean Eucl Distance STD:  1.076799 with STD:  0.32827362
+Mean Manhattan Distance:  221.05749031156066 with STD:  15.1527589498326
+Mean Manhattan Distance STD:  23.563159878112145 with STD:  7.221583700315453
+Mean Dot Distance:  10.118156 with STD:  0.6436524
+Mean Dot Distance STD:  1.014284 with STD:  0.27921495
+----- Trial  2 -----
+loading annotations into memory...
+Done (t=0.97s)
+creating index...
+index created!
+Extracting BERT context vectors...
+Mean Eucl Distance:  8.540664 with STD:  1.1117996
+Mean Eucl Distance STD:  1.4484328 with STD:  0.5152646
+Mean Manhattan Distance:  187.12917757710147 with STD:  24.290922699855606
+Mean Manhattan Distance STD:  31.672003260633726 with STD:  11.443069523279773
+Mean Dot Distance:  11.134492 with STD:  0.81362295
+Mean Dot Distance STD:  1.0392349 with STD:  0.3578241
+--- UNPAIRED ---
+Mean Eucl Distance:  10.020379 with STD:  0.6833517
+Mean Eucl Distance STD:  1.0882106 with STD:  0.3389467
+Mean Manhattan Distance:  219.8066249836575 with STD:  14.964329444101669
+Mean Manhattan Distance STD:  23.829885075391072 with STD:  7.36454115741183
+Mean Dot Distance:  10.209038 with STD:  0.6482535
+Mean Dot Distance STD:  0.996014 with STD:  0.28355008
+----- Trial  3 -----
+loading annotations into memory...
+Done (t=0.70s)
+creating index...
+index created!
+Extracting BERT context vectors...
+Mean Eucl Distance:  8.850068 with STD:  1.0243
+Mean Eucl Distance STD:  1.4941138 with STD:  0.48964316
+Mean Manhattan Distance:  193.96025950506748 with STD:  22.401500291970127
+Mean Manhattan Distance STD:  32.760789768053776 with STD:  10.743661615689945
+Mean Dot Distance:  10.926226 with STD:  0.7770133
+Mean Dot Distance STD:  1.1060157 with STD:  0.33964965
+--- UNPAIRED ---
+Mean Eucl Distance:  9.974973 with STD:  0.73796594
+Mean Eucl Distance STD:  1.0921926 with STD:  0.35369453
+Mean Manhattan Distance:  218.75240990421904 with STD:  16.088277841753957
+Mean Manhattan Distance STD:  23.86808052322068 with STD:  7.695096232587762
+Mean Dot Distance:  10.219844 with STD:  0.6672895
+Mean Dot Distance STD:  1.0119908 with STD:  0.28827354
