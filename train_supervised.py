@@ -22,7 +22,7 @@ def forward(img_features, captions):
         if USE_CUDA:
             gt_indeces = gt_indeces.cuda()
 
-        word_logits, lstm_states = agent.forward(
+        word_logits, lstm_states = agent.actor(
             state, lstm_states)
 
         raw_loss += cross_entropy(input=word_logits,
@@ -32,7 +32,7 @@ def forward(img_features, captions):
         # Update state
         state['language_lstm_h'] = lstm_states['language_h']
         # Teacher forcing
-        state['prev_word_indeces'] = torch.LongTensor(gt_indeces)
+        state['prev_word_indeces'] = gt_indeces
 
     # mean batch loss
     return raw_loss / count_nonzero(indeces)
@@ -74,8 +74,9 @@ for e in range(MAX_EPOCH):
         in_epoch_loss += batch_loss.item()
 
         # prints out accumulated batch loss for sanity :(
-        if (i + 1) % 300 == 0:
-            print('Tr loss 300 batches: ', in_epoch_loss)
+        if (i + 1) % 500 == 0:
+            print('Tr loss 500 batches: ', (in_epoch_loss / 500),
+                  '{:.2f}s.'.format(time.time() - epoch_start))
             in_epoch_loss = 0.0
 
     with torch.no_grad():
@@ -85,7 +86,8 @@ for e in range(MAX_EPOCH):
 
     agent.actor_optim_scheduler.step()
     print('Epoch: {} Tr Loss: {:.2f} Val Loss: {:.2f}. {:.2f}s'.format(
-        e + 1, tr_epoch_loss, val_epoch_loss, time.time() - epoch_start))
+        e + 1, (tr_epoch_loss / i), (val_epoch_loss / i),
+        time.time() - epoch_start))
 
     if val_epoch_loss < min_val_loss:
         print('Lower validation loss achieved. Saving model.')

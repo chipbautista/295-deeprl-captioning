@@ -30,6 +30,7 @@ class MSCOCO(Dataset):
         else:
             # karpathy's test split is from validation data set
             # need to do this to load the correct COCO data
+            # when instantiating a COCO object.
             split = 'val' if split == 'test' else split
 
         if split == 'train':

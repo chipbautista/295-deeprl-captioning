@@ -79,11 +79,6 @@ class Agent(object):
             predicted_words = ' '.join(predicted_words)
         return predicted_words, running_log_p
 
-    def update_policy(self, advantages, log_probabilities):
-        loss = torch.stack(advantages * log_probabilities).sum()
-        loss.backward()
-        print('Updating agent policy...')
-
 
 class TopDownModel(torch.nn.Module):
     def __init__(self):
