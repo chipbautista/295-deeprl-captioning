@@ -1,5 +1,6 @@
 from torch import cuda
 USE_CUDA = cuda.is_available()
+LOAD_IMAGES_TO_MEMORY = True
 
 # Files
 CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'

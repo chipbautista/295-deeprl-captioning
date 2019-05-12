@@ -21,6 +21,11 @@ class MSCOCO(Dataset):
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
             self.img_ids = f.read().split('\n')[:-1]
 
+        if LOAD_IMAGES_TO_MEMORY:
+            self.images = {}
+            for img_id in self.img_ids:
+                self.images[img_id] = np.load(FEATURES_DIR.format(img_id))
+
         # ADJUSTMENTS #
         # For the new split:
         # Each line is: "'train2014/COCO_train2014_000000413892.jpg 413892'"
@@ -50,27 +55,23 @@ class MSCOCO(Dataset):
             caption_ids = self.coco.getAnnIds(imgIds=int(img_id))
             captions = [self._preprocess(c['caption']) for c in
                         self.coco.loadAnns(caption_ids)]
-            if torch.cuda.device_count() > 1:  # triggers when using ASTI
-                self.img_caption_pairsextend([
-                    (np.load(FEATURES_DIR.format(img_id)), caption)
-                    for caption in captions
-                ])
-            else:
-                self.img_caption_pairs.extend([
-                    (img_id, caption) for caption in captions
-                ])
+            self.img_caption_pairs.extend([
+                (img_id, caption) for caption in captions
+            ])
 
     def __getitem__(self, index):
+        def get_img_features(img_id):
+            if LOAD_IMAGES_TO_MEMORY:
+                return self.images[img_id]
+            return np.load(FEATURES_DIR.format(img_id))
         # Case 1: When we give out a total of 414,113 image-caption pairs
         # (For supervised training)
         if PAIR_ALL_CAPTIONS and not self.evaluation:
-            if torch.cuda.device_count() > 1:
-                return self.img_caption_pairs[index]
             img_id, caption = self.img_caption_pairs[index]
-            return (np.load(FEATURES_DIR.format(img_id)), caption)
+            return (get_img_features(img_id), caption)
 
         img_id = self.img_ids[index]
-        img_features = np.load(FEATURES_DIR.format(img_id))
+        img_features = get_img_features(img_id)
         caption_ids = self.coco.getAnnIds(imgIds=int(img_id))
 
         # Case 2: When we're doing RL training and want to get all the
