@@ -21,17 +21,16 @@ class MSCOCO(Dataset):
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
             self.img_ids = f.read().split('\n')[:-1]
 
-        if LOAD_IMAGES_TO_MEMORY:
-            self.images = {}
-            for img_id in self.img_ids:
-                self.images[img_id] = np.load(FEATURES_DIR.format(img_id))
-
         # ADJUSTMENTS #
         # For the new split:
         # Each line is: "'train2014/COCO_train2014_000000413892.jpg 413892'"
         # and we only want the id
         if 'cocoid' not in KARPATHY_SPLIT_DIR.format(split):
             self.img_ids = [i.split()[-1] for i in self.img_ids]
+            if LOAD_IMAGES_TO_MEMORY:
+                self.images = {}
+                for img_id in self.img_ids:
+                    self.images[img_id] = np.load(FEATURES_DIR.format(img_id))
         else:
             # karpathy's test split is from validation data set
             # need to do this to load the correct COCO data
