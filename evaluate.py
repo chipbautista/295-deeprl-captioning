@@ -36,9 +36,9 @@ except IndexError:
 
 env = Environment()
 agent = Agent()
-# If using CUDA, remove the map_location!
-agent.actor.load_state_dict(
-    torch.load(weights_file, map_location='cpu')['model_state_dict'])
+agent.actor.load_state_dict(torch.load(
+    weights_file, map_location=None if USE_CUDA else 'cpu'
+)['model_state_dict'])
 
 MSCOCO_dataset = MSCOCO(split, evaluation=True)
 loader = DataLoader(MSCOCO_dataset, shuffle=True)
@@ -72,7 +72,8 @@ for i, (img_id, img_features, captions) in enumerate(loader):
 with open(RESULT_DIR.format(split), 'w+') as f:
     f.write(json.dumps(results))
 
-print('Saved results to COCO format. Will now run evaluation tool.')
+print('Saved results to COCO format in ', RESULT_DIR.format(split))
+print('Will now run evaluation tool.')
 
 # Following:
 # https://github.com/tylin/coco-caption/blob/master/cocoEvalCapDemo.ipynb

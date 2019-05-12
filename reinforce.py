@@ -19,9 +19,9 @@ agent.actor.load_state_dict(torch.load(
 )['model_state_dict'])
 
 train_loader = DataLoader(MSCOCO('train', evaluation=True),
-                          batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE)
+                          batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE, pin_memory=True)
 val_loader = DataLoader(MSCOCO('val', evaluation=True),
-                        shuffle=SHUFFLE)
+                        shuffle=SHUFFLE, pin_memory=True)
 
 with torch.no_grad():
     val_ground_truths = {}
@@ -34,14 +34,16 @@ with torch.no_grad():
         val_ground_truths[img_ids[0]] = list(np.array(captions).T[0])
         greedy_captions[img_ids[0]] = [greedy_caption]
 
-    _, val_greedy_scores = env.get_cider_score(
+    _, val_greedy_scores = env.cider.compute_score(
         val_ground_truths, greedy_captions)
     val_reward = np.mean(val_greedy_scores)
 print('Starting val CIDEr score: ', val_reward)
 
 print('RUN IDENTIFIER: ', RUN_IDENTIFIER)
 print('LEARNING RATE: ', LEARNING_RATE_RL)
+print('DECAY PER {} EPOCHS: {}'.format(LR_DECAY_STEP_SIZE, LR_DECAY_PER_EPOCH))
 print('BATCH SIZE: ', BATCH_SIZE_RL)
+print('TOTAL BATCHES: ', len(train_loader), '\n')
 print('\nStarting REINFORCE training.\n')
 
 max_val_reward = val_reward
@@ -82,8 +84,10 @@ for e in range(10):
         # transform ground truth and results to the format needed for eval
         ground_truth = dict(zip(img_ids, map(list, captions)))
 
-        _, sample_scores = env.cider.compute_score(ground_truth, sampled_captions)
-        _, greedy_scores = env.cider.compute_score(ground_truth, greedy_captions)
+        _, sample_scores = env.cider.compute_score(
+            ground_truth, sampled_captions)
+        _, greedy_scores = env.cider.compute_score(
+            ground_truth, greedy_captions)
 
         # self-critical: score from sampling - score from test time algo
         advantages = torch.Tensor((sample_scores - greedy_scores).reshape(-1))
@@ -100,7 +104,7 @@ for e in range(10):
         rewards.extend(sample_scores)
         g_rewards.extend(greedy_scores)
 
-        if (b + 1) % 1000 == 0:
+        if (b + 1) % 100 == 0:
             print('\t[Batch {} running metrics] - R train {:.2f} - R train (greedy): {:.2f}'.format(
                 b + 1, np.mean(rewards), np.mean(g_rewards)))
 
@@ -116,7 +120,8 @@ for e in range(10):
             val_ground_truths[img_ids[0]] = list(np.array(captions).T[0])
             greedy_captions[img_ids[0]] = [greedy_caption]
 
-        _, val_greedy_scores = env.cider.compute_score(val_ground_truths, greedy_captions)
+        _, val_greedy_scores = env.cider.compute_score(
+            val_ground_truths, greedy_captions)
 
     val_reward = np.mean(val_greedy_scores)
     print('Epoch {} - R train: {:.2f} - R train (greedy): {:.2f} - R val: {:.2f} ({:.2f}s)'.format(

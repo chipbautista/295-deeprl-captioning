@@ -50,14 +50,22 @@ class MSCOCO(Dataset):
             caption_ids = self.coco.getAnnIds(imgIds=int(img_id))
             captions = [self._preprocess(c['caption']) for c in
                         self.coco.loadAnns(caption_ids)]
-            self.img_caption_pairs.extend([
-                (img_id, caption) for caption in captions
-            ])
+            if torch.cuda.device_count() > 1:  # triggers when using ASTI
+                self.img_caption_pairsextend([
+                    (np.load(FEATURES_DIR.format(img_id)), caption)
+                    for caption in captions
+                ])
+            else:
+                self.img_caption_pairs.extend([
+                    (img_id, caption) for caption in captions
+                ])
 
     def __getitem__(self, index):
         # Case 1: When we give out a total of 414,113 image-caption pairs
         # (For supervised training)
         if PAIR_ALL_CAPTIONS and not self.evaluation:
+            if torch.cuda.device_count() > 1:
+                return self.img_caption_pairs[index]
             img_id, caption = self.img_caption_pairs[index]
             return (np.load(FEATURES_DIR.format(img_id)), caption)
 

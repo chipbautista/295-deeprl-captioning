@@ -28,14 +28,9 @@ class Agent(object):
             nesterov=True)
         self.actor_optim_scheduler = torch.optim.lr_scheduler.StepLR(
             self.actor_optim,
-            step_size=2,
+            step_size=LR_DECAY_STEP_SIZE,
             gamma=LR_DECAY_PER_EPOCH
         )
-
-        self.DISCOUNT = DISCOUNT_FACTOR
-
-    def forward(self, state, lstm_states):
-        return self.actor(state, lstm_states)
 
     def inference(self, state, lstm_states, env, mode='sample', join=True):
         """

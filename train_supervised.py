@@ -42,17 +42,20 @@ RUN_IDENTIFIER = time.strftime('RETRAIN-%m%d-%H%M-E')
 
 agent = Agent()
 # agent.actor.load_state_dict(
-#     torch.load(MODEL_WEIGHTS, map_location='cpu')['model_state_dict'])
+#     torch.load(MODEL_DIR.format('RETRAIN-0511-1517-E0'))['model_state_dict'])
 
 train_loader = DataLoader(MSCOCO('train'),
-                          batch_size=BATCH_SIZE, shuffle=SHUFFLE)
+                          batch_size=BATCH_SIZE, shuffle=SHUFFLE,
+                          pin_memory=True)
 val_loader = DataLoader(MSCOCO('val'),
-                        batch_size=BATCH_SIZE, shuffle=SHUFFLE)
+                        batch_size=256, shuffle=SHUFFLE,
+                        pin_memory=True)
 env = Environment()
 
 print('\nRUN #', RUN_IDENTIFIER[:-2])
 print('BATCH SIZE: ', BATCH_SIZE)
 print('LEARNING RATE: ', LEARNING_RATE)
+print('DECAY PER {} EPOCHS: {}'.format(LR_DECAY_STEP_SIZE, LR_DECAY_PER_EPOCH))
 print('TOTAL BATCHES: ', len(train_loader), '\n')
 
 min_val_loss = 20000.0
@@ -86,7 +89,8 @@ for e in range(MAX_EPOCH):
 
     agent.actor_optim_scheduler.step()
     print('Epoch: {} Tr Loss: {:.2f} Val Loss: {:.2f}. {:.2f}s'.format(
-        e + 1, (tr_epoch_loss / i), (val_epoch_loss / i),
+        e + 1, (tr_epoch_loss / len(train_loader)),
+        (val_epoch_loss / len(val_loader)),
         time.time() - epoch_start))
 
     if val_epoch_loss < min_val_loss:
