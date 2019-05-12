@@ -10,7 +10,7 @@ https://github.com/pranz24/pytorch-soft-actor-critic/blob/master/sac.py
 ^ ABORT THIS
 """
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as F, cross_entropy
 from settings import *
 
 
@@ -105,7 +105,7 @@ class TopDownModel(torch.nn.Module):
             bias=True
         )
 
-    def forward(self, state, lstm_states):
+    def forward(self, state, lstm_states, gt_indeces):
         """
         FUNCTION INPUTS:
         language_lstm_h: shape (1000)
@@ -167,7 +167,12 @@ class TopDownModel(torch.nn.Module):
             'attention_c': attention_lstm_c
         }
 
-        return word_logits, lstm_states
+        loss = cross_entropy(
+            input=word_logits,
+            target=gt_indeces,
+            reduction='sum',
+            ignore_index=0)
+        return word_logits, lstm_states, loss
 
 
 class AttentionLayer(torch.nn.Module):

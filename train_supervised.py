@@ -3,7 +3,7 @@ import time
 
 import torch
 from torch.utils.data import DataLoader
-from torch.nn.functional import cross_entropy
+# from torch.nn.functional import cross_entropy
 from numpy import count_nonzero
 
 from agent import Agent
@@ -22,12 +22,10 @@ def forward(img_features, captions):
         if USE_CUDA:
             gt_indeces = gt_indeces.cuda()
 
-        word_logits, lstm_states = agent.actor(
-            state, lstm_states)
+        word_logits, lstm_states, loss = agent.actor(
+            state, lstm_states, gt_indeces)
 
-        raw_loss += cross_entropy(input=word_logits,
-                                  target=gt_indeces,
-                                  reduction='sum', ignore_index=0)
+        raw_loss += loss
 
         # Update state
         state['language_lstm_h'] = lstm_states['language_h']
@@ -41,6 +39,7 @@ def forward(img_features, captions):
 RUN_IDENTIFIER = time.strftime('RETRAIN-%m%d-%H%M-E')
 
 agent = Agent()
+agent.actor = torch.nn.DataParallel(agent.actor)
 # agent.actor.load_state_dict(
 #     torch.load(MODEL_DIR.format('RETRAIN-0511-1517-E0'))['model_state_dict'])
 
