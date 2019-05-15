@@ -10,7 +10,7 @@ from settings import *
 from data import MSCOCO
 
 
-def evaluate_cider(data_loader, env):
+def evaluate_cider(data_loader):
     ground_truths = {}
     predictions = {}
     for img_ids, img_features, captions in data_loader:
@@ -21,7 +21,7 @@ def evaluate_cider(data_loader, env):
             greedy_captions = agent.predict_captions(
                 img_features, 'greedy')
         predictions.update(dict(zip(img_ids, greedy_captions)))
-    _, cider_score = env.cider.compute_score(ground_truths, predictions)
+    cider_score, _ = env.cider.compute_score(ground_truths, predictions)
     return cider_score
 
 
@@ -40,7 +40,7 @@ val_loader = DataLoader(MSCOCO('val', evaluation=True),
                         batch_size=1000, shuffle=SHUFFLE, pin_memory=True)
 
 
-val_reward = evaluate_cider(val_loader, env)
+val_reward = evaluate_cider(val_loader)
 print('Starting val CIDEr score: ', val_reward)
 max_val_reward = val_reward
 
@@ -100,7 +100,7 @@ for e in range(10):
                 b + 1, np.mean(rewards), np.mean(g_rewards)))
 
     # VALIDATION
-    val_reward = evaluate_cider(val_loader, env)
+    val_reward = evaluate_cider(val_loader)
     print('Epoch {} - R train: {:.2f} - R train (greedy): {:.2f} - R val: {:.2f} ({:.2f}s)'.format(
         e, np.mean(rewards), np.mean(g_rewards), val_reward,
         time.time() - epoch_start))
