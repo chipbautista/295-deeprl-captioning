@@ -9,13 +9,17 @@ For training actor-critic, follow this implementation:
 https://github.com/pranz24/pytorch-soft-actor-critic/blob/master/sac.py
 ^ ABORT THIS
 """
+import numpy as np
 import torch
 import torch.nn.functional as F
+
 from settings import *
 
 
 class Agent(object):
-    def __init__(self, learning_rate=LEARNING_RATE):
+    def __init__(self, learning_rate=LEARNING_RATE, env=None):
+        self.env = env
+
         if USE_CUDA:
             self.actor = TopDownModel().cuda()
         else:
@@ -31,6 +35,62 @@ class Agent(object):
             step_size=LR_DECAY_STEP_SIZE,
             gamma=LR_DECAY_PER_EPOCH
         )
+
+    def predict_captions(self, img_features, mode='sample'):
+        predictions = []
+        log_probs = []
+        _, state, lstm_states = self.env.reset(img_features)
+
+        # this should store the index of the first occurrence of <EOS>
+        # for each sample in the batch
+        EOS_tracker = np.full(img_features.shape[0], None)
+        for i in range(MAX_WORDS):
+            word_logits, lstm_states = self.actor(state, lstm_states)
+
+            # decoding stuff
+            probs = F.softmax(word_logits, dim=1)
+            if mode == 'sample':
+                idxs = torch.multinomial(probs, 1)
+            else:
+                idxs = torch.argmax(probs, dim=1)
+            if USE_CUDA:
+                idxs = idxs.cpu()
+            words = self.env.vocabulary[idxs]
+            predictions.append(words.reshape(-1))
+
+            # get the respective log probability of chosen word
+            # for each sample in the batch
+            log_probs.append([lp[i] for (lp, i)
+                             in zip(torch.log(probs), idxs)])
+
+            # inefficient but this should be fast enough anyway... ? :(
+            eos_idxs = (words == '<EOS>').nonzero()[0]
+            for idx in eos_idxs:
+                if EOS_tracker[idx] is None:
+                    EOS_tracker[idx] = i + 1
+
+            # finish loop if they're all done
+            if all(EOS_tracker != None):
+                break
+
+            state['language_lstm_h'] = lstm_states['language_h']
+            state['prev_word_indeces'] = idxs.reshape(-1)
+
+        # build the actual sentences, up until the first occurrence of <EOS>
+        captions = [
+            [' '.join(w[:eos_idx])] for (w, eos_idx) in
+            zip(np.array(predictions).T, EOS_tracker)
+        ]
+        # do this only when training. not needed otherwise.
+        if mode == 'sample':
+            log_probs = [
+                lp[:eos_idx].sum() for (lp, eos_idx) in
+                zip(np.array(log_probs).T, EOS_tracker)
+            ]
+            return captions, log_probs
+
+        return captions
+
 
     def inference(self, state, lstm_states, env, mode='sample', join=True):
         """
