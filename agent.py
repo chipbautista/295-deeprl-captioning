@@ -36,7 +36,7 @@ class Agent(object):
             gamma=LR_DECAY_PER_EPOCH
         )
 
-    def predict_captions(self, img_features, mode='sample'):
+    def predict_captions(self, img_features, mode='sample', constrain=False):
         predictions = []
         log_probs = []
         _, state, lstm_states = self.env.reset(img_features)
@@ -49,6 +49,13 @@ class Agent(object):
 
             # decoding stuff
             probs = F.softmax(word_logits, dim=1)
+
+            if constrain:
+                # enforce constraint that the same word can't be predicted
+                # twice in a row. zero-out the probability of previous words
+                for p, i in zip(probs, state['prev_word_indeces']):
+                    p[i] = 0
+
             if mode == 'sample':
                 idxs = torch.multinomial(probs, 1)
             else:

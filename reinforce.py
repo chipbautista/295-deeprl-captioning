@@ -19,7 +19,7 @@ def evaluate_cider(data_loader):
 
         with torch.no_grad():
             greedy_captions = agent.predict_captions(
-                img_features, 'greedy')
+                img_features, 'greedy', constrain=True)
         predictions.update(dict(zip(img_ids, greedy_captions)))
     cider_score, _ = env.cider.compute_score(ground_truths, predictions)
     return cider_score
@@ -32,8 +32,9 @@ agent = Agent(LEARNING_RATE_RL, env)
 agent.actor.load_state_dict(torch.load(
     MODEL_WEIGHTS, map_location=None if USE_CUDA else 'cpu'
 )['model_state_dict'])
+print('Loaded model weights: ', MODEL_WEIGHTS)
 
-train_loader = DataLoader(MSCOCO('val', evaluation=True),
+train_loader = DataLoader(MSCOCO('train', evaluation=True),
                           batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE,
                           pin_memory=True)
 val_loader = DataLoader(MSCOCO('val', evaluation=True),
