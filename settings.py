@@ -1,6 +1,6 @@
 from torch import cuda
 USE_CUDA = cuda.is_available()
-LOAD_IMAGES_TO_MEMORY = True
+LOAD_IMAGES_TO_MEMORY = False
 
 # Files
 CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
@@ -20,11 +20,13 @@ SHUFFLE = True
 MAX_EPOCH = 50
 
 # RL Training Settings
-LEARNING_RATE_RL = 5e-3
-BATCH_SIZE_RL = 128
+LEARNING_RATE_RL = 1e-4
+BATCH_SIZE_RL = 32
 MAX_WORDS = 30
-MODEL_WEIGHTS = MODEL_DIR.format('RETRAIN-0511-2138-E9')
-# for pc: 0507-1702-E1
+MODEL_WEIGHTS = MODEL_DIR.format('RETRAIN-0512-2307-E16')
+BETA = 1  # if 1: pure cider score
+TARGET_DIST = 180.0  # manhattan distance
+INCLUDE_CONTEXT_SCORE = True
 
 # Data Settings
 PAIR_ALL_CAPTIONS = True

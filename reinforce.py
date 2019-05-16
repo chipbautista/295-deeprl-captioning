@@ -3,6 +3,7 @@ import time
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from bert_serving.client import BertClient
 
 from agent import Agent
 from environment import Environment
@@ -25,8 +26,18 @@ def evaluate_cider(data_loader):
     return cider_score
 
 
+def get_scores(gt, gt_, preds, preds_):
+    # predictions_ is basically the same as predictions
+    # but it's a list instead of a dict.
+    _, cider_scores = env.cider.compute_score(gt, preds)
+    if INCLUDE_CONTEXT_SCORE:
+        context_scores = env.get_context_score(gt_, preds_)
+        return (BETA * cider_scores) + ((1 - BETA) * context_scores)
+    return cider_scores
+
+
 RUN_IDENTIFIER = time.strftime('RL-%m%d-%H%M-E')
-env = Environment()
+env = Environment(BertClient())
 agent = Agent(LEARNING_RATE_RL, env)
 
 agent.actor.load_state_dict(torch.load(
@@ -38,10 +49,11 @@ train_loader = DataLoader(MSCOCO('train', evaluation=True),
                           batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE,
                           pin_memory=True)
 val_loader = DataLoader(MSCOCO('val', evaluation=True),
-                        batch_size=1000, shuffle=SHUFFLE, pin_memory=True)
+                        batch_size=500, shuffle=SHUFFLE, pin_memory=True)
 
 
-val_reward = evaluate_cider(val_loader)
+# val_reward = evaluate_cider(val_loader)
+val_reward = 0
 print('Starting val CIDEr score: ', val_reward)
 max_val_reward = val_reward
 
@@ -53,7 +65,7 @@ print('TOTAL BATCHES: ', len(train_loader), '\n')
 print('\nStarting REINFORCE training.\n')
 
 
-for e in range(10):
+for e in range(20):
     epoch_start = time.time()
 
     # TRAINING
@@ -62,12 +74,12 @@ for e in range(10):
     for b, (img_ids, img_features, captions) in enumerate(train_loader):
         agent.actor_optim.zero_grad()
 
-        sampled_captions, sampled_log_probs = agent.predict_captions(
+        sampled_captions_, sampled_log_probs = agent.predict_captions(
             img_features)
-        sampled_captions = dict(zip(img_ids, sampled_captions))
+        sampled_captions = dict(zip(img_ids, sampled_captions_))
         with torch.no_grad():
-            greedy_captions = agent.predict_captions(img_features, 'greedy')
-            greedy_captions = dict(zip(img_ids, greedy_captions))
+            greedy_captions_ = agent.predict_captions(img_features, 'greedy')
+            greedy_captions = dict(zip(img_ids, greedy_captions_))
 
         # pytorch's dataloader does something to the lists,
         # but i dont need it and i dont know how to turn it off.
@@ -76,13 +88,15 @@ for e in range(10):
 
         # transform ground truth and results to the format needed for eval
         ground_truth = dict(zip(img_ids, map(list, captions)))
-        _, sample_scores = env.cider.compute_score(
-            ground_truth, sampled_captions)
-        _, greedy_scores = env.cider.compute_score(
-            ground_truth, greedy_captions)
+        sample_reward = get_scores(
+            ground_truth, captions, sampled_captions, sampled_captions_)
+        greedy_reward = get_scores(
+            ground_truth, captions, greedy_captions, greedy_captions_)
 
         # self-critical: score from sampling - score from test time algo
-        advantages = torch.Tensor((sample_scores - greedy_scores).reshape(-1))
+        advantages = torch.Tensor(
+            (sample_reward - greedy_reward).reshape(-1))
+
         # normalize advantages
         advantages = ((advantages - advantages.mean()) /
                       advantages.std() + 1e-9)
@@ -93,8 +107,8 @@ for e in range(10):
         loss.backward()
         agent.actor_optim.step()
 
-        rewards.extend(sample_scores)
-        g_rewards.extend(greedy_scores)
+        rewards.extend(sample_cider_scores)
+        g_rewards.extend(greedy_cider_scores)
 
         if (b + 1) % 50 == 0:
             print('\t[Batch {} running metrics] - R train {:.2f} - R train (greedy): {:.2f}'.format(
@@ -102,7 +116,7 @@ for e in range(10):
 
     # VALIDATION
     val_reward = evaluate_cider(val_loader)
-    print('Epoch {} - R train: {:.2f} - R train (greedy): {:.2f} - R val: {:.2f} ({:.2f}s)'.format(
+    print('Epoch {} - R train: {:.2f} - R train (greedy): {:.2f} - R val (CIDEr): {:.2f} ({:.2f}s)'.format(
         e, np.mean(rewards), np.mean(g_rewards), val_reward,
         time.time() - epoch_start))
 

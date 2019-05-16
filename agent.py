@@ -53,8 +53,8 @@ class Agent(object):
             if constrain:
                 # enforce constraint that the same word can't be predicted
                 # twice in a row. zero-out the probability of previous words
-                for p, i in zip(probs, state['prev_word_indeces']):
-                    p[i] = 0
+                for p, prev_idx in zip(probs, state['prev_word_indeces']):
+                    p[prev_idx] = 0
 
             if mode == 'sample':
                 idxs = torch.multinomial(probs, 1)

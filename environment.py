@@ -12,7 +12,7 @@ sys.path.append('pycocoevalcap/cider')
 # from nltk.translate.bleu_score import sentence_bleu
 import numpy as np
 import torch
-# from torch.nn.functional import cosine_similarity
+from sklearn.metrics import pairwise_distances
 from torch.nn.utils.rnn import pad_sequence
 # from bert_serving.client import BertClient
 from cider.cider import Cider
@@ -26,9 +26,10 @@ from settings import *
 
 
 class Environment(object):
-    def __init__(self):
+    def __init__(self, bert_client=None):
         self.vocabulary = np.load('vocabulary.npy')
         self.cider = Cider()
+        self.bert_client = bert_client
 
     def reset(self, b_img_features, b_captions=None):
         """
@@ -80,12 +81,24 @@ class Environment(object):
 
         return b_indeces, state, lstm_states
 
-    # def get_metrics(self, captions, predicted_words):
-        # bleu_score = sentence_bleu(
-        #     references=[c.split() for c in captions],
-        #     hypothesis=predicted_words)
-        # return bleu_score
-        # return None
+    def get_context_score(self, ground_truths, predictions):
+        distances = []
+
+        gt_ = [s.replace(' <EOS>', '')
+               for s in ground_truths.reshape(-1)]
+        gt_vectors = self.bert_client.encode(gt_)
+        p_ = [s[0].replace(' <EOS>', '')
+              for s in predictions]
+        p_vectors = self.bert_client.encode(p_)
+
+        for i in range(0, len(p_)):
+            mean_dist = pairwise_distances(gt_vectors[2 * i: 2 * i + 5],
+                                           p_vectors[i].reshape(1, -1),
+                                           'manhattan').mean()
+            # for now: subtract 100 so the score is higher if the distance
+            # from the target is lower.
+            distances.append(100 - abs(TARGET_DIST - mean_dist))
+        return np.array(distances) / 100  # to scale down to CIDEr
 
     def probs_to_word(self, probabilities, mode='sample'):
         if mode == 'sample':
