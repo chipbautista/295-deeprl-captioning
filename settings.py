@@ -4,10 +4,9 @@ LOAD_IMAGES_TO_MEMORY = False
 
 # Files
 CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
-# KARPATHY_SPLIT_DIR = '../data/karpathy_splits/coco2014_cocoid.{}.txt'
 KARPATHY_SPLIT_DIR = '../data/karpathy_splits/karpathy_{}_images.txt'
 FEATURES_DIR = '../data/features/extracts/{}.npy'
-MEAN_VEC_DIR = '../data/mean_vectors/{}.npy'
+CAPTION_VECTORS_DIR = '../data/caption_vectors/train/{}.npy'
 MODEL_DIR = '../models/{}'
 
 # Neural Network Training Settings
@@ -23,7 +22,7 @@ MAX_EPOCH = 50
 LEARNING_RATE_RL = 1e-4
 BATCH_SIZE_RL = 32
 MAX_WORDS = 30
-MODEL_WEIGHTS = MODEL_DIR.format('RETRAIN-0512-2307-E16')
+MODEL_WEIGHTS = MODEL_DIR.format('RL-0516-1547-E9')
 BETA = 1  # if 1: pure cider score
 TARGET_DIST = 180.0  # manhattan distance
 INCLUDE_CONTEXT_SCORE = True

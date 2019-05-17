@@ -31,19 +31,31 @@ def get_scores(gt, gt_, preds, preds_):
     # but it's a list instead of a dict.
     _, cider_scores = env.cider.compute_score(gt, preds)
     if INCLUDE_CONTEXT_SCORE:
-        context_scores = env.get_context_score(gt_, preds_)
-        return (BETA * cider_scores) + ((1 - BETA) * context_scores)
-    return cider_scores
+        # gt_vectors = np.array([np.load(CAPTION_VECTORS_DIR.format(img_id))
+        #                        for img_id in img_ids])
+        context_scores = env.get_context_score(
+            gt_, preds_)
+        reward = (BETA * cider_scores) + ((1 - BETA) * context_scores)
+        return cider_scores, context_scores, reward
+    return cider_scores, None, None
 
 
 RUN_IDENTIFIER = time.strftime('RL-%m%d-%H%M-E')
-env = Environment(BertClient())
+
+if INCLUDE_CONTEXT_SCORE:
+    # Run this first, else the program won't continue
+    # bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ -max_seq_len 30
+    # add "-cpu" if running on CPU.
+    bert_client = BertClient(check_length=False)
+else:
+    bert_client = None
+
+env = Environment(bert_client)
 agent = Agent(LEARNING_RATE_RL, env)
 
 agent.actor.load_state_dict(torch.load(
     MODEL_WEIGHTS, map_location=None if USE_CUDA else 'cpu'
 )['model_state_dict'])
-print('Loaded model weights: ', MODEL_WEIGHTS)
 
 train_loader = DataLoader(MSCOCO('train', evaluation=True),
                           batch_size=BATCH_SIZE_RL, shuffle=SHUFFLE,
@@ -51,15 +63,16 @@ train_loader = DataLoader(MSCOCO('train', evaluation=True),
 val_loader = DataLoader(MSCOCO('val', evaluation=True),
                         batch_size=500, shuffle=SHUFFLE, pin_memory=True)
 
-
 # val_reward = evaluate_cider(val_loader)
 val_reward = 0
 print('Starting val CIDEr score: ', val_reward)
 max_val_reward = val_reward
 
 print('RUN IDENTIFIER: ', RUN_IDENTIFIER)
+print('Loaded model weights: ', MODEL_WEIGHTS)
 print('LEARNING RATE: ', LEARNING_RATE_RL)
-print('DECAY PER {} EPOCHS: {}'.format(LR_DECAY_STEP_SIZE, LR_DECAY_PER_EPOCH))
+print('INCLUDE_CONTEXT_SCORE: {}. BETA={}'.format(INCLUDE_CONTEXT_SCORE, BETA))
+# print('DECAY PER {} EPOCHS: {}'.format(LR_DECAY_STEP_SIZE, LR_DECAY_PER_EPOCH))
 print('BATCH SIZE: ', BATCH_SIZE_RL)
 print('TOTAL BATCHES: ', len(train_loader), '\n')
 print('\nStarting REINFORCE training.\n')
@@ -69,8 +82,14 @@ for e in range(20):
     epoch_start = time.time()
 
     # TRAINING
-    rewards = []
-    g_rewards = []
+    rewards = {
+        'sample_cider': [],
+        'sample_context': [],
+        'sample_reward': [],  # actual reward, controlled by beta
+        'greedy_cider': [],
+        'greedy_context': [],
+        'greedy_reward': []
+    }
     for b, (img_ids, img_features, captions) in enumerate(train_loader):
         agent.actor_optim.zero_grad()
 
@@ -88,9 +107,9 @@ for e in range(20):
 
         # transform ground truth and results to the format needed for eval
         ground_truth = dict(zip(img_ids, map(list, captions)))
-        sample_reward = get_scores(
+        sample_cider_score, sample_context_score, sample_reward = get_scores(
             ground_truth, captions, sampled_captions, sampled_captions_)
-        greedy_reward = get_scores(
+        greedy_cider_score, greedy_context_score, greedy_reward = get_scores(
             ground_truth, captions, greedy_captions, greedy_captions_)
 
         # self-critical: score from sampling - score from test time algo
@@ -107,18 +126,26 @@ for e in range(20):
         loss.backward()
         agent.actor_optim.step()
 
-        rewards.extend(sample_cider_scores)
-        g_rewards.extend(greedy_cider_scores)
+        rewards['sample_cider'].extend(sample_cider_score)
+        rewards['sample_context'].extend(sample_context_score)
+        rewards['sample_reward'].extend(sample_reward)
+        rewards['greedy_cider'].extend(greedy_cider_score)
+        rewards['greedy_context'].extend(greedy_context_score)
+        rewards['greedy_reward'].extend(greedy_reward)
 
         if (b + 1) % 50 == 0:
             print('\t[Batch {} running metrics] - R train {:.2f} - R train (greedy): {:.2f}'.format(
-                b + 1, np.mean(rewards), np.mean(g_rewards)))
+                b + 1, np.mean(rewards['sample_reward']), np.mean(rewards['greedy_reward'])))
 
     # VALIDATION
     val_reward = evaluate_cider(val_loader)
+
     print('Epoch {} - R train: {:.2f} - R train (greedy): {:.2f} - R val (CIDEr): {:.2f} ({:.2f}s)'.format(
-        e, np.mean(rewards), np.mean(g_rewards), val_reward,
+        e, np.mean(rewards['sample_reward']), np.mean(rewards['greedy_reward']), val_reward,
         time.time() - epoch_start))
+    print('Sample CIDEr: {}. Sample context: {}. Greedy CIDEr: {}. Greedy context: {}'.format(
+        np.mean(rewards['sample_cider']), np.mean(rewards['sample_context']),
+        np.mean(rewards['greedy_cider']), np.mean(rewards['greedy_context'])))
 
     if val_reward > max_val_reward:
         max_val_reward = val_reward
