@@ -19,11 +19,6 @@ from cider.cider import Cider
 
 from settings import *
 
-# Run this first if using BERT encodings:
-# bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ -max_seq_len 35
-# add "-cpu" if running on CPU.
-# bert_client = BertClient()
-
 
 class Environment(object):
     def __init__(self, bert_client=None):
@@ -87,12 +82,13 @@ class Environment(object):
         gt_ = [s.replace(' <EOS>', '')
                for s in ground_truths.reshape(-1)]
         gt_vectors = self.bert_client.encode(gt_)
+
         p_ = [s[0].replace(' <EOS>', '')
               for s in predictions]
         p_vectors = self.bert_client.encode(p_)
 
         for i in range(0, len(p_)):
-            mean_dist = pairwise_distances(gt_vectors[2 * i: 2 * i + 5],
+            mean_dist = pairwise_distances(gt_vectors[5 * i: 5 * i + 5],
                                            p_vectors[i].reshape(1, -1),
                                            'manhattan').mean()
             # for now: subtract 100 so the score is higher if the distance

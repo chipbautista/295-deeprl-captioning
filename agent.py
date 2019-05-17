@@ -99,49 +99,6 @@ class Agent(object):
         return captions
 
 
-    def inference(self, state, lstm_states, env, mode='sample', join=True):
-        """
-        BECAUSE OF NON-FIXED SEQUENCE LENGTH, FOR NOW,
-        THIS ONLY WORKS FOR ONE SAMPLE AT A TIME!
-
-        Unfold LSTM for inference.
-        - `mode` is either "sample" or "greedy". Defines how to get the word
-        from the obtained probabilities. Word obtained from this is used as
-        the next input to the LSTM.
-        """
-        predicted_words = []
-        # the p of a sentence is the product of each word's p (if im right...)
-        # Eq (8) of Bottom-Up Top-Down Paper
-        running_log_p = 0.0
-        for _ in range(MAX_WORDS):
-            word_logits, lstm_states = self.actor(state, lstm_states)
-
-            # get actual words
-            probs = F.softmax(word_logits, dim=1)
-
-            if USE_CUDA:
-                word_idx, word = env.probs_to_word(
-                    probs[0].detach().cpu().numpy(), mode)
-            else:
-                word_idx, word = env.probs_to_word(
-                    probs[0].detach().numpy(), mode)
-
-            # need to get the probability from the original `probs` variable
-            # to retain the graph
-            running_log_p += torch.log(probs[0][word_idx])
-            predicted_words.append(word)
-            if word == '<EOS>':
-                break
-
-            # for next iteration
-            state['language_lstm_h'] = lstm_states['language_h']
-            state['prev_word_indeces'] = torch.LongTensor([word_idx])
-
-        if join:
-            predicted_words = ' '.join(predicted_words)
-        return predicted_words, running_log_p
-
-
 class TopDownModel(torch.nn.Module):
     def __init__(self):
         super(TopDownModel, self).__init__()

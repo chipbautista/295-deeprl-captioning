@@ -13,32 +13,22 @@ from settings import *
 class MSCOCO(Dataset):
     def __init__(self, split, evaluation=False):
         # Set evaluation to True if you want this to return
-        # all the captions for a single image.
-        # 1 sample = [image, 5 captions]
+        # all the captions for a single image. (1 sample = [image, 5 captions])
         # If false, then pairs each image with each of its captions
-        # 1 sample = [image, 1 caption]
+        # (1 sample = [image, 1 caption])
         self.evaluation = evaluation
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
             self.img_ids = f.read().split('\n')[:-1]
 
-        # ADJUSTMENTS #
-        # For the new split:
-        # Each line is: "'train2014/COCO_train2014_000000413892.jpg 413892'"
-        # and we only want the id
-        if 'cocoid' not in KARPATHY_SPLIT_DIR.format(split):
-            self.img_ids = [i.split()[-1] for i in self.img_ids]
-            if LOAD_IMAGES_TO_MEMORY:
-                self.images = {}
-                for img_id in self.img_ids:
-                    self.images[img_id] = np.load(FEATURES_DIR.format(img_id))
-        else:
-            # karpathy's test split is from validation data set
-            # need to do this to load the correct COCO data
-            # when instantiating a COCO object.
-            split = 'val' if split == 'test' else split
+        self.img_ids = [i.split()[-1] for i in self.img_ids]
+        if LOAD_IMAGES_TO_MEMORY:
+            self.images = {}
+            for img_id in self.img_ids:
+                self.images[img_id] = np.load(FEATURES_DIR.format(img_id))
+
+        split = 'val' if split == 'test' else split
 
         if split == 'train':
-            # combine
             self.coco = self._load_train_and_val()
         else:
             self.coco = COCO(CAPTIONS_DIR.format(split))
@@ -107,8 +97,5 @@ class MSCOCO(Dataset):
         train_coco.anns.update(val_coco.anns)
         train_coco.imgs.update(val_coco.imgs)
         train_coco.imgToAnns.update(val_coco.imgToAnns)
-        # train_coco.catToImgs += val_coco.catToImgs
-        # train_coco.cats += val_coco.cats
-        # train_coco.dataset.update(val_coco.dataset)
         print('Merged COCO training and validation sets for training.')
         return train_coco

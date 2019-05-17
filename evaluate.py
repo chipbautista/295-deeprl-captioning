@@ -35,39 +35,24 @@ except IndexError:
     weights_file = MODEL_WEIGHTS
 
 env = Environment()
-agent = Agent()
+agent = Agent(env=env)
 agent.actor.load_state_dict(torch.load(
     weights_file, map_location=None if USE_CUDA else 'cpu'
 )['model_state_dict'])
 
 MSCOCO_dataset = MSCOCO(split, evaluation=True)
-loader = DataLoader(MSCOCO_dataset, shuffle=True)
+data_loader = DataLoader(MSCOCO_dataset, batch_size=500, shuffle=True)
 
-img_ids = []
 results = []
-for i, (img_id, img_features, captions) in enumerate(loader):
-    # for some unknown reason,
-    # individual caption is a tuple with one element. need to do [0].
-    # captions = [c[0] for c in captions]
-
-    _, init_state, init_lstm_states = env.reset(img_features)
+for img_ids, img_features, captions in data_loader:
     with torch.no_grad():
-        # sampled_caption, _ = agent.inference(
-        #     init_state, init_lstm_states, env)
-        greedy_caption, _ = agent.inference(
-            init_state, init_lstm_states, env, 'greedy')
-
-    # print('Ex: GT Caption: ', captions[2])
-    # print('Sampled caption: ', sampled_caption,
-    #       env.get_metrics(captions, sampled_words))
-    # print('Greedy caption: ', greedy_caption,
-    #       env.get_metrics(captions, greedy_words))
-
-    results.append({
-        'image_id': int(img_id[0]),
-        'caption': greedy_caption
-    })
-
+        greedy_captions = agent.predict_captions(
+            img_features, 'greedy', constrain=True)
+    for img_id, greedy_caption in zip(img_ids, greedy_captions):
+        results.append({
+            'image_id': int(img_id),
+            'caption': greedy_caption[0]
+        })
 
 with open(RESULT_DIR.format(split), 'w+') as f:
     f.write(json.dumps(results))
