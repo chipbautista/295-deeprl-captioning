@@ -89,7 +89,7 @@ for e in range(20):
         agent.actor_optim.zero_grad()
 
         sampled_captions, sampled_log_probs = agent.predict_captions(
-            img_features, mode='beam_search')
+            img_features, mode='sample')
         sampled_dict = dict(zip(img_ids, sampled_captions))
         with torch.no_grad():
             greedy_captions = agent.predict_captions(img_features, 'greedy')

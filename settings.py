@@ -6,7 +6,6 @@ LOAD_IMAGES_TO_MEMORY = False
 CAPTIONS_DIR = '../data/coco/annotations/captions_{}2014.json'
 KARPATHY_SPLIT_DIR = '../data/karpathy_splits/karpathy_{}_images.txt'
 FEATURES_DIR = '../data/features/extracts/{}.npy'
-# CAPTION_VECTORS_DIR = '../data/caption_vectors/train/{}.npy'
 CAPTION_VECTORS_DIR = '../data/caption_vectors/{}/{}.npy'
 MODEL_DIR = '../models/{}'
 
@@ -28,8 +27,7 @@ MAX_WORDS = 30
 MODEL_WEIGHTS = MODEL_DIR.format('RETRAIN-0512-2307-E9')
 # Final base LSTM: RETRAIN-0512-2307-E9 (greedy CIDEr starts at 1.00)
 
-BETA = 0.1 # if 1: pure cider score
-TARGET_DIST = 180.0  # manhattan distance
+BETA = 0.1  # if 1: pure cider score
 INCLUDE_CONTEXT_SCORE = True
 
 # Data Settings

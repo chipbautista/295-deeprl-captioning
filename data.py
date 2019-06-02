@@ -13,10 +13,9 @@ from settings import *
 class MSCOCO(Dataset):
     def __init__(self, split, evaluation=False):
         # Set evaluation to True if you want this to return
-        # all the captions for a single image.
-        # 1 sample = [image, 5 captions]
+        # all the captions for a single image. (1 sample = [image, 5 captions])
         # If false, then pairs each image with each of its captions
-        # 1 sample = [image, 1 caption]
+        # (1 sample = [image, 1 caption])
         self.evaluation = evaluation
         with open(KARPATHY_SPLIT_DIR.format(split)) as f:
             self.img_ids = f.read().split('\n')[:-1]
@@ -33,7 +32,6 @@ class MSCOCO(Dataset):
         split = 'val' if split == 'test' else split
 
         if split == 'train':
-            # combine
             self.coco = self._load_train_and_val()
         else:
             self.coco = COCO(CAPTIONS_DIR.format(split))
