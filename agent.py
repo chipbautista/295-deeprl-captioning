@@ -37,9 +37,12 @@ class Agent(object):
         )
 
     def predict_captions(self, img_features, mode='sample', constrain=False):
+        _, state, lstm_states = self.env.reset(img_features)
+        if mode == 'beam_search':
+            return self.beam_search(img_features, state, lstm_states)
+
         predictions = []
         log_probs = []
-        _, state, lstm_states = self.env.reset(img_features)
 
         # this should store the index of the first occurrence of <EOS>
         # for each sample in the batch
@@ -98,6 +101,83 @@ class Agent(object):
 
         return captions
 
+    def beam_search(self, img_features, state, lstm_states):
+        def get_top_words(probs):
+            idxs = []
+            log_probs = []
+            for p in probs:
+                top_probs, top_idxs = torch.topk(p, BEAM_SIZE)
+                log_probs.append(top_probs)
+                idxs.append([[i] for i in top_idxs.cpu().numpy()])
+
+            return idxs, torch.log(torch.stack(log_probs))
+
+        # keep track of the predictions in these lists
+        idxs = []
+        log_probs = []
+        for i in range(MAX_WORDS):
+            word_logits, lstm_states = self.actor(state, lstm_states)
+            probs = F.softmax(word_logits, dim=1)
+
+            if i == 0:
+                idxs, log_probs = get_top_words(probs)
+                prev_word_idxs = idxs
+                # at time step = 0, the batch size is 64.
+                # at subsequent time steps, we have to expand 64 * 5 beams
+                # for efficiency, we pass BATCH_SIZE * BEAM_SIZE in the
+                # next forward(). adjust lstm_states:
+                for k, v in lstm_states.items():
+                    lstm_states[k] = v.repeat_interleave(BEAM_SIZE, dim=0)
+                state['img_features'] = state['img_features'].repeat_interleave(BEAM_SIZE, dim=0)
+                state['pooled_img_features'] = state['pooled_img_features'].repeat_interleave(BEAM_SIZE, dim=0)
+
+            else:
+                prev_word_idxs = []
+                for k in range(0, BATCH_SIZE_RL * BEAM_SIZE, BEAM_SIZE):
+                    # example number. basically, `n` is from 0 to 64.
+                    n = int(k / BEAM_SIZE)
+
+                    _, log_probs_ = get_top_words(probs[k: k + BEAM_SIZE])
+
+                    # this complex-looking thing basically adds the original
+                    # log probs to the new log probs, but we have to reshape
+                    # them since the original shape is (5).
+                    all_log_probs = (
+                        log_probs[n].reshape(
+                            BEAM_SIZE, 1).expand(-1, BEAM_SIZE) +
+                        log_probs_)
+                    import pdb; pdb.set_trace()
+                    # then we keep only the top 5 log probs or beams.
+                    log_probs[n], idxs_ = all_log_probs.flatten().topk(BEAM_SIZE)
+                    idxs_ = idxs_.cpu().numpy()
+                    prev_word_idxs.append(idxs_)
+
+
+                    # now we have 5 new words with indeces in `idxs_`,
+                    # but we don't know their previous word (it could be any
+                    # of the ones in `idxs[k]`
+                    new_caption_idxs = []
+                    for j in idxs_:
+                        prev = idxs[n][int(np.floor(j / BEAM_SIZE))]
+                        # import pdb; pdb.set_trace()
+
+                        new_caption_idxs.append(prev + [j])
+                    # import pdb; pdb.set_trace()
+                    idxs[n] = new_caption_idxs
+
+                    # SANITY CHECK
+                    if k == 0:
+                        print(idxs_)
+                        print(log_probs[0])
+                        print(idxs[0])
+
+                # TO-DO: NEED TO GET THE INDECES OF THE LSTM STATES THAT GOT SELECTED
+                for key in lstm_states:
+                    lstm_states[key] = lstm_states[key][]
+
+            state['language_lstm_h'] = lstm_states['language_h']
+            import pdb; pdb.set_trace()
+            state['prev_word_indeces'] = torch.LongTensor(prev_word_idxs).flatten()
 
     def inference(self, state, lstm_states, env, mode='sample', join=True):
         """

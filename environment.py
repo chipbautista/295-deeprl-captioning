@@ -9,20 +9,14 @@ sys.path.append('pycocoevalcap/spice')
 sys.path.append('pycocoevalcap/cider')
 
 
-# from nltk.translate.bleu_score import sentence_bleu
 import numpy as np
 import torch
 from sklearn.metrics import pairwise_distances
+from sklearn.metrics.pairwise import cosine_similarity
 from torch.nn.utils.rnn import pad_sequence
-# from bert_serving.client import BertClient
 from cider.cider import Cider
 
 from settings import *
-
-# Run this first if using BERT encodings:
-# bert-serving-start -model_dir ../data/bert_models/uncased_L-12_H-768_A-12/ -max_seq_len 35
-# add "-cpu" if running on CPU.
-# bert_client = BertClient()
 
 
 class Environment(object):
@@ -81,24 +75,25 @@ class Environment(object):
 
         return b_indeces, state, lstm_states
 
-    def get_context_score(self, ground_truths, predictions):
+    def get_context_score(self, gt_vectors, predictions):
+        curr_batch_size = len(predictions)
         distances = []
 
-        gt_ = [s.replace(' <EOS>', '')
-               for s in ground_truths.reshape(-1)]
-        gt_vectors = self.bert_client.encode(gt_)
         p_ = [s[0].replace(' <EOS>', '')
               for s in predictions]
         p_vectors = self.bert_client.encode(p_)
 
-        for i in range(0, len(p_)):
-            mean_dist = pairwise_distances(gt_vectors[2 * i: 2 * i + 5],
-                                           p_vectors[i].reshape(1, -1),
-                                           'manhattan').mean()
-            # for now: subtract 100 so the score is higher if the distance
-            # from the target is lower.
-            distances.append(100 - abs(TARGET_DIST - mean_dist))
-        return np.array(distances) / 100  # to scale down to CIDEr
+        for i in range(0, curr_batch_size):
+            mean_gt_distance = np.triu(pairwise_distances(
+                gt_vectors[i], metric='manhattan'))
+            mean_gt_distance = mean_gt_distance[mean_gt_distance > 0].mean()
+            mean_pred_dist = pairwise_distances(gt_vectors[i],
+                                                p_vectors[i].reshape(1, -1),
+                                                'manhattan').mean()
+            distances.append(
+                1 - (abs(mean_gt_distance - mean_pred_dist) / mean_pred_dist)
+            )
+        return np.array(distances)
 
     def probs_to_word(self, probabilities, mode='sample'):
         if mode == 'sample':
