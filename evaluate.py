@@ -41,13 +41,13 @@ agent.actor.load_state_dict(torch.load(
 )['model_state_dict'])
 
 MSCOCO_dataset = MSCOCO(split, evaluation=True)
-data_loader = DataLoader(MSCOCO_dataset, batch_size=500, shuffle=True)
+data_loader = DataLoader(MSCOCO_dataset, batch_size=64, shuffle=True)
 
 results = []
 for img_ids, img_features, captions in data_loader:
     with torch.no_grad():
         greedy_captions = agent.predict_captions(
-            img_features, 'greedy', constrain=True)
+            img_features, mode='beam_search', constrain=True)
     for img_id, greedy_caption in zip(img_ids, greedy_captions):
         results.append({
             'image_id': int(img_id),

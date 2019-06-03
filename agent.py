@@ -4,10 +4,6 @@ described in Anderson's Bottom-Up Top-Down paper.
 
 ruotianluo has his own implementation here:
 https://github.com/ruotianluo/self-critical.pytorch/blob/master/models/AttModel.py
-
-For training actor-critic, follow this implementation:
-https://github.com/pranz24/pytorch-soft-actor-critic/blob/master/sac.py
-^ ABORT THIS
 """
 import numpy as np
 import torch
@@ -102,82 +98,73 @@ class Agent(object):
         return captions
 
     def beam_search(self, img_features, state, lstm_states):
-        def get_top_words(probs):
-            idxs = []
-            log_probs = []
-            for p in probs:
-                top_probs, top_idxs = torch.topk(p, BEAM_SIZE)
-                log_probs.append(top_probs)
-                idxs.append([[i] for i in top_idxs.cpu().numpy()])
+        def is_done(indices):
+            # check if all generated captions have <EOS> already
+            for i in indices:
+                if 1 not in i:
+                    return False
+            return True
 
-            return idxs, torch.log(torch.stack(log_probs))
-
-        # keep track of the predictions in these lists
-        idxs = []
-        log_probs = []
+        # store the word indeces for the final outputs in here:
+        caption_idxs = []
         for i in range(MAX_WORDS):
             word_logits, lstm_states = self.actor(state, lstm_states)
             probs = F.softmax(word_logits, dim=1)
-
+            top_k = torch.topk(probs, k=BEAM_SIZE, dim=1)
             if i == 0:
-                idxs, log_probs = get_top_words(probs)
-                prev_word_idxs = idxs
                 # at time step = 0, the batch size is 64.
                 # at subsequent time steps, we have to expand 64 * 5 beams
-                # for efficiency, we pass BATCH_SIZE * BEAM_SIZE in the
-                # next forward(). adjust lstm_states:
-                for k, v in lstm_states.items():
-                    lstm_states[k] = v.repeat_interleave(BEAM_SIZE, dim=0)
+                # for efficiency, we pass 320 samples in the next pass.
+                word_idxs = top_k.indices.flatten()
+                caption_idxs = [[int(x)] for x in word_idxs]
+                log_probs = torch.log(top_k.values).flatten().reshape(-1, 1).expand(-1, BEAM_SIZE)
+
                 state['img_features'] = state['img_features'].repeat_interleave(BEAM_SIZE, dim=0)
                 state['pooled_img_features'] = state['pooled_img_features'].repeat_interleave(BEAM_SIZE, dim=0)
+                for k, v in lstm_states.items():
+                    lstm_states[k] = v.repeat_interleave(BEAM_SIZE, dim=0)
 
             else:
-                prev_word_idxs = []
+                word_idxs = []
+                global_idxs = []  # will be used for getting the next lstm states
+                all_log_probs = torch.log(top_k.values) + log_probs
+                # process this by batch
                 for k in range(0, BATCH_SIZE_RL * BEAM_SIZE, BEAM_SIZE):
-                    # example number. basically, `n` is from 0 to 64.
                     n = int(k / BEAM_SIZE)
+                    # here we select the 5 branches we want to keep
+                    top_k_ = all_log_probs[k: k + 5].flatten().topk(BEAM_SIZE)
+                    log_probs[k: k + 5] = top_k_.values.reshape(-1, 1).expand(-1, BEAM_SIZE)
 
-                    _, log_probs_ = get_top_words(probs[k: k + BEAM_SIZE])
-
-                    # this complex-looking thing basically adds the original
-                    # log probs to the new log probs, but we have to reshape
-                    # them since the original shape is (5).
-                    all_log_probs = (
-                        log_probs[n].reshape(
-                            BEAM_SIZE, 1).expand(-1, BEAM_SIZE) +
-                        log_probs_)
-                    import pdb; pdb.set_trace()
-                    # then we keep only the top 5 log probs or beams.
-                    log_probs[n], idxs_ = all_log_probs.flatten().topk(BEAM_SIZE)
-                    idxs_ = idxs_.cpu().numpy()
-                    prev_word_idxs.append(idxs_)
-
-
-                    # now we have 5 new words with indeces in `idxs_`,
-                    # but we don't know their previous word (it could be any
-                    # of the ones in `idxs[k]`
+                    # new selected indeces:
                     new_caption_idxs = []
-                    for j in idxs_:
-                        prev = idxs[n][int(np.floor(j / BEAM_SIZE))]
-                        # import pdb; pdb.set_trace()
+                    for idx in top_k_.indices:
+                        this_word_idx = int(top_k.indices[k: k + 5].flatten()[idx])
+                        # add this word's index to the list used for next forward pass
+                        word_idxs.append(this_word_idx)
+                        # find the parent index of this word
+                        parent_idx = int(np.floor(idx / BEAM_SIZE))
+                        # build the indeces of each word of the sentence
+                        prev_idx = caption_idxs[k: k + 5][parent_idx]
+                        new_caption_idxs.append(prev_idx + [this_word_idx])
+                        # SANITY CHECK
+                        # if k == 0:
+                        #     print([self.env.vocabulary[a] for a in new_caption_idxs[-1]])
+                        ####
+                        # this is the index of its corresponding hidden state
+                        global_idxs.append(k + parent_idx)
+                    caption_idxs[k: k + 5] = new_caption_idxs
+                if is_done(caption_idxs):
+                    for x in new_caption_idxs:
+                    return caption_idxs, log_probs[:, 0]
 
-                        new_caption_idxs.append(prev + [j])
-                    # import pdb; pdb.set_trace()
-                    idxs[n] = new_caption_idxs
-
-                    # SANITY CHECK
-                    if k == 0:
-                        print(idxs_)
-                        print(log_probs[0])
-                        print(idxs[0])
-
-                # TO-DO: NEED TO GET THE INDECES OF THE LSTM STATES THAT GOT SELECTED
-                # for key in lstm_states:
-                #     lstm_states[key] = lstm_states[key][]
+                # construct the correct hidden states for next pass.
+                for h in lstm_states:
+                    lstm_states[h] = lstm_states[h][global_idxs]
+                word_idxs = torch.LongTensor(word_idxs)
 
             state['language_lstm_h'] = lstm_states['language_h']
-            import pdb; pdb.set_trace()
-            state['prev_word_indeces'] = torch.LongTensor(prev_word_idxs).flatten()
+            state['prev_word_indeces'] = word_idxs
+
 
 class TopDownModel(torch.nn.Module):
     def __init__(self):
